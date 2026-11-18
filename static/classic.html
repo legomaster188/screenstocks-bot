@@ -1,0 +1,2511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Screen Stocks bot</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230F1620'/%3E%3Crect x='2.5' y='8' width='3' height='5' rx='.5' fill='%232EBF88'/%3E%3Crect x='6.5' y='5' width='3' height='8' rx='.5' fill='%23DF9F38'/%3E%3Crect x='10.5' y='2.5' width='3' height='10.5' rx='.5' fill='%232EBF88'/%3E%3C/svg%3E">
+<style>
+/* Home page of the Screen Stocks agent: simple by default, the old wall of charts is one click away (wall.html).
+   Self-contained: no CDN, no web fonts. Amber always means "the bot"; green and red only mean up and down. */
+:root{
+  color-scheme:dark;
+  --bg:#0A0F16;--panel:#0F1620;--raise:#151E2A;--hover:#172130;--sel:#1C2838;
+  --line:#1C2634;--line-2:#283446;--grid:#151E2A;
+  --text:#E7EDF5;--text-2:#AAB6C7;--muted:#7C899C;--faint:#566377;
+  --up:#2EBF88;--up-t:#4FD49B;--dn:#EE5A52;--dn-t:#FF7D73;
+  --bot:#DF9F38;--bot-t:#F2B857;--bot-wash:rgba(223,159,56,.12);--bot-edge:rgba(223,159,56,.5);
+  --warn:#E5C35C;--ev:#D9478A;--ev-t:#F28BBB;--ring:#C8D3E2;--ink:#0A0F16;--cross:#33435A;--tip:rgba(9,13,20,.96);
+  --num:Bahnschrift,"DIN Alternate","DIN Next","Roboto Condensed","sans-serif-condensed","Arial Narrow",system-ui,sans-serif;
+  --txt:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Roboto,sans-serif;
+  --r:10px;--gut:24px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--bg);scrollbar-gutter:stable}
+body{margin:0;min-width:320px;background:var(--bg);color:var(--text);font:14px/1.45 var(--txt);-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.n{font-family:var(--num);font-variant-numeric:tabular-nums lining-nums}
+.up{color:var(--up-t)}.dn{color:var(--dn-t)}.flat{color:var(--text-2)}.mut{color:var(--muted)}.faint{color:var(--faint)}.botc{color:var(--bot-t)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#243042;border-radius:6px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- top bar */
+.bar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:10px 14px;padding:10px var(--gut);flex-wrap:wrap}
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font:600 16px/1 var(--num);white-space:nowrap;margin-right:6px}
+.brand svg{width:26px;height:26px;display:block;flex:none}
+.power{display:inline-flex;align-items:center;gap:10px;height:42px;padding:0 16px 0 6px;border-radius:999px;border:1px solid var(--line-2);background:var(--panel);cursor:pointer;text-align:left;flex:none}
+.power:hover{border-color:#3A4B63}
+.power .trk{width:46px;height:30px;border-radius:999px;background:var(--raise);border:1px solid var(--line-2);position:relative;flex:none}
+.power .kn{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--muted)}
+body.ready .power .trk{transition:background .15s,border-color .15s}
+body.ready .power .kn{transition:transform .15s,background .15s}
+.power b{display:block;font:600 15px/1.1 var(--num)}
+.power small{display:block;font-size:12px;line-height:1.2;color:var(--muted)}
+.power[aria-checked=true]{border-color:var(--bot-edge);background:var(--bot-wash)}
+.power[aria-checked=true] .trk{background:var(--bot);border-color:var(--bot)}
+.power[aria-checked=true] .kn{transform:translateX(16px);background:var(--ink)}
+.power[aria-checked=true] b{color:var(--bot-t)}
+.power[aria-busy=true]{opacity:.65;cursor:progress}
+.spacer{flex:1 1 auto}
+.feed{display:inline-flex;align-items:center;gap:8px;font:500 14px/1 var(--num);color:var(--text-2);white-space:nowrap}
+.feed i{width:9px;height:9px;border-radius:50%;background:var(--faint);flex:none}
+.feed.ok i{background:var(--up);box-shadow:0 0 0 3px rgba(46,191,136,.16)}
+.feed.warn i{background:var(--warn)}.feed.bad i{background:var(--dn)}
+.feed small{font-size:12.5px;color:var(--muted);min-width:34px}
+.nav{display:flex;align-items:center;gap:2px}
+.nav a{display:inline-flex;align-items:center;height:36px;padding:0 11px;border-radius:8px;color:var(--text-2);text-decoration:none;font:500 15px/1 var(--num);white-space:nowrap}
+.nav a:hover{color:var(--text);background:var(--hover)}
+.icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel);color:var(--text-2);cursor:pointer;flex:none;padding:0}
+.icon-btn:hover{color:var(--text);border-color:#3A4B63;background:var(--hover)}
+.icon-btn svg{width:19px;height:19px;display:block}
+.banner{max-width:1320px;margin:12px auto 0;padding:0 var(--gut)}
+.banner div{display:flex;gap:10px;align-items:baseline;padding:10px 14px;border-radius:8px;font-size:14px;background:#251E14;border:1px solid #4A3C1E;color:var(--text)}
+.banner.bad div{background:#2A171A;border-color:#532A2E}
+.banner b{font-family:var(--num);color:var(--warn)}.banner.bad b{color:var(--dn-t)}
+body.offline main{opacity:.6;transition:opacity .2s}
+
+/* ---------- layout */
+main{max-width:1320px;margin:0 auto;padding:22px var(--gut) 56px}
+.home-top{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:28px;align-items:start}
+.home-low{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;margin-top:32px;align-items:start}
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px 18px;min-width:0}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin:0 0 10px}
+.sec-h h2,.panel h2{margin:0;font:600 17px/1.2 var(--num);letter-spacing:.005em}
+.panel h2{margin-bottom:12px}
+.sec-h .more{margin-left:auto;font:500 14px/1 var(--num);color:var(--text-2);text-decoration:none;background:none;border:0;padding:6px 2px;cursor:pointer}
+.sec-h .more:hover{color:var(--text);text-decoration:underline;text-underline-offset:3px}
+.empty{color:var(--muted);font-size:14px;padding:12px 0}
+
+/* ---------- hero */
+.hero{min-width:0}
+.hero .lbl{font:500 15px/1 var(--num);color:var(--muted)}
+.nw{font:600 clamp(46px,7.2vw,88px)/1 var(--num);font-stretch:87.5%;font-variant-numeric:tabular-nums lining-nums;letter-spacing:-.012em;margin:10px 0 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nw.long{font-size:clamp(38px,5.6vw,68px)}
+.stats{display:flex;flex-wrap:wrap;gap:10px 34px}
+.stat{display:flex;flex-direction:column;gap:3px;min-width:0}
+.stat b{font:600 22px/1.15 var(--num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat span{font-size:13.5px;color:var(--muted)}
+.hero-note{margin:10px 0 0;font-size:13.5px;color:var(--muted);max-width:62ch}
+.hero-note .n{color:var(--text-2)}
+.chart-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:24px}
+.tabs{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--panel);border:1px solid var(--line);flex:none}
+.tabs button{border:0;background:transparent;color:var(--text-2);font:600 13.5px/1 var(--num);padding:8px 13px;border-radius:999px;cursor:pointer;min-width:42px}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-pressed=true]{background:var(--sel);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2)}
+.chg{font:500 14.5px/1.2 var(--num);font-variant-numeric:tabular-nums}
+.nwchart{position:relative;height:clamp(230px,34vh,340px);margin-top:12px}
+.plot canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:pan-y;outline:none}
+.plot canvas:focus-visible{outline:2px solid var(--ring);outline-offset:-2px;border-radius:6px}
+.plot.stale canvas{opacity:.45;transition:opacity .2s}
+.tip{position:absolute;left:0;top:0;z-index:5;pointer-events:none;min-width:150px;max-width:min(340px,calc(100% - 12px));background:var(--tip);border:1px solid var(--line-2);border-radius:8px;padding:8px 11px;font-size:13px;line-height:1.4;box-shadow:0 10px 28px rgba(2,5,10,.55)}
+.tip .t1{font-weight:600;color:var(--text)}.tip .t2{color:var(--text-2)}.tip .t3{color:var(--muted);font-size:12.5px}
+.tip .big{font:600 16px/1.35 var(--num);font-variant-numeric:tabular-nums}
+.tip .up{color:var(--up-t)}.tip .dn{color:var(--dn-t)}
+
+/* ---------- what the bot is doing */
+.doing{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px;min-height:66px}
+.doing li{display:grid;grid-template-columns:9px minmax(0,1fr);gap:11px;align-items:baseline;font-size:15px;line-height:1.45}
+.doing li::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--faint);transform:translateY(-1px)}
+.doing li.bot::before{background:var(--bot)}.doing li.up::before{background:var(--up)}.doing li.dn::before{background:var(--dn)}
+.doing li.warn::before{background:var(--warn)}.doing li.bad::before{background:var(--dn)}
+.doing .tx{min-width:0}
+.doing b{font-weight:600}
+.doing .n{font-size:1.04em}
+.doing small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+
+/* ---------- right now */
+.poslist{display:flex;flex-direction:column}
+.pos{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 14px;padding:11px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit;align-items:baseline}
+.pos:first-child{border-top:0;padding-top:2px}
+.pos:hover .t1 b{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line-2)}
+.pos .t1{font:500 15px/1.25 var(--num)}
+.pos .t1 b{font-weight:600}
+.pos .t1 .tag{color:var(--bot-t);font-size:13.5px;margin-left:6px}
+.pos .t1 .tag.you{color:var(--text-2)}
+.pos .t2{grid-column:1;font-size:13px;color:var(--muted)}
+.pos .pl{font:600 17px/1.2 var(--num);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pos .pp{font:500 13.5px/1.2 var(--num);text-align:right;white-space:nowrap}
+.none{color:var(--text-2);font-size:14px;padding:2px 0 4px}
+.rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 16px;align-items:baseline;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.rows dt{color:var(--muted);font-size:13.5px;white-space:nowrap}
+.rows dd{margin:0;font-size:14px;min-width:0}
+.rows dd .n{font-size:15px}
+.cds{display:flex;flex-direction:column;gap:9px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.cd{display:grid;grid-template-columns:46px minmax(0,1fr) 62px;align-items:center;gap:12px}
+.cd .k{color:var(--muted);font-size:13.5px}
+.cd .bar{height:6px;border-radius:3px;background:var(--raise);overflow:hidden}
+.cd .bar i{display:block;height:100%;width:100%;border-radius:3px;background:var(--text-2);transform-origin:left center;transform:scaleX(0)}
+.cd.ready .bar i{background:var(--up)}
+.cd .v{font:600 15px/1 var(--num);font-variant-numeric:tabular-nums;text-align:right;color:var(--text-2)}
+.cd.ready .v{color:var(--up-t)}
+.pend{margin-top:12px;font-size:13.5px;color:var(--muted)}
+.pend b{color:var(--bot-t);font-weight:600}
+
+/* ---------- latest trades */
+.tlist{list-style:none;margin:0;padding:0;min-height:240px}
+.tlist li{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:4px 14px;align-items:baseline;padding:12px 0;border-top:1px solid var(--line)}
+.tlist li:first-child{border-top:0}
+.tlist .tm{font:500 13.5px/1.3 var(--num);color:var(--muted);font-variant-numeric:tabular-nums}
+.tlist .what{min-width:0;font-size:15px;line-height:1.35}
+.tlist .what b{font-weight:600}
+.tlist .what .n{font-size:15.5px}
+.tlist .res{font:600 16px/1.3 var(--num);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tlist .res small{display:block;font:500 13px/1.3 var(--num);text-align:right}
+.tlist .why{grid-column:2/4;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlist li.open{background:linear-gradient(90deg,var(--bot-wash),transparent 70%);border-radius:6px}
+.tlist li.ph .what{color:var(--faint)}
+
+/* ---------- stocks */
+.stocks-h{display:grid;grid-template-columns:var(--cols);gap:12px;padding:0 12px 8px;font:500 12.5px/1 var(--num);color:var(--muted)}
+.stocks-h span:nth-child(n+3){text-align:right}
+.slist{--cols:minmax(92px,1.1fr) minmax(70px,96px) minmax(62px,.75fr) minmax(58px,.6fr) minmax(70px,.75fr) minmax(104px,1.05fr);min-height:300px}
+.srow{display:grid;grid-template-columns:var(--cols);gap:12px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);color:inherit;text-decoration:none;border-radius:6px;position:relative}
+.srow:hover{background:var(--hover)}
+.srow.held::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--bot)}
+.srow.locked{opacity:.55}
+.s-name{min-width:0;display:flex;flex-direction:column;gap:1px}
+.s-name b{font:600 16px/1.2 var(--num);white-space:nowrap}
+.s-name small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-name .lock{display:inline-block;width:10px;height:11px;margin-left:6px;vertical-align:-1px;color:var(--muted)}
+.s-spark{height:28px;width:100%;display:block;overflow:visible}
+.s-spark path{fill:none;stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.s-px{font:600 16px/1 var(--num);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.s-ch,.s-div{font:500 14.5px/1 var(--num);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.s-div{color:var(--text-2)}
+.s-bot{text-align:right;font:500 14px/1.2 var(--num);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-bot .who{color:var(--bot-t)}
+.s-bot.nope{color:var(--faint)}
+.srow.ph .s-name b,.srow.ph .s-px{color:var(--faint)}
+
+/* ---------- stock view */
+.back{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 8px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);color:var(--text);text-decoration:none;font:500 14.5px/1 var(--num)}
+.back:hover{background:var(--hover);border-color:#3A4B63}
+.back svg{width:16px;height:16px}
+.sv-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px;margin:18px 0 6px}
+.sv-title{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sv-title h1{margin:0;font:600 clamp(30px,4.4vw,44px)/1 var(--num);font-stretch:87.5%;letter-spacing:-.005em}
+.sv-title small{color:var(--muted);font-size:13.5px}
+.sv-px{font:600 clamp(30px,4.4vw,44px)/1 var(--num);font-stretch:87.5%;font-variant-numeric:tabular-nums}
+.sv-facts{display:flex;flex-wrap:wrap;gap:8px 26px;padding-bottom:3px}
+.sv-facts .stat b{font-size:19px}
+.sv-hold{margin:14px 0 2px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;padding:12px 16px;border-radius:var(--r);border:1px solid var(--bot-edge);background:var(--bot-wash);font-size:15px}
+.sv-hold b{color:var(--bot-t);font-family:var(--num);font-weight:600}
+.sv-hold .pl{font:600 18px/1 var(--num);font-variant-numeric:tabular-nums}
+.sv-hold small{flex-basis:100%;color:var(--text-2);font-size:13.5px}
+.sv-chartbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:22px}
+.svchart{position:relative;height:clamp(320px,52vh,560px);margin-top:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+.svchart canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:pan-y}
+.svchart.stale canvas{opacity:.45;transition:opacity .2s}
+.c-tip{position:absolute;z-index:3;pointer-events:none;background:var(--tip);border:1px solid var(--line-2);border-radius:8px;padding:8px 11px;font-size:13px;line-height:1.4;max-width:360px;box-shadow:0 10px 28px rgba(2,5,10,.55)}
+.c-tip .t1{font-weight:600;color:var(--text)}.c-tip .t2{color:var(--text-2)}.c-tip .t3{color:var(--muted)}
+.c-tip .up{color:var(--up-t)}.c-tip .dn{color:var(--dn-t)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px dashed var(--bot)}
+.legend i.tri{width:0;height:0;border:5px solid transparent;border-bottom:8px solid var(--up);border-top:0}
+.legend i.tri.dn{border-bottom:0;border-top:8px solid var(--dn)}
+.legend i.box{width:14px;height:10px;border:1px solid var(--up);background:rgba(46,191,136,.16)}
+.sv-low{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;margin-top:30px;align-items:start}
+.strat{display:flex;flex-direction:column;gap:16px}
+.side-s{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 14px}
+.side-s>b{font:600 15px/1.45 var(--num);color:var(--text-2)}
+.side-s p{margin:0;font-size:15px;line-height:1.5}
+.side-s .bt{grid-column:2;font-size:13.5px;color:var(--text-2)}
+.side-s .bt .n{font-size:14.5px;color:var(--text)}
+.side-s .bt .up{color:var(--up-t)}.side-s .bt .dn{color:var(--dn-t)}
+.side-s.off p{color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted);margin:0}
+
+/* ---------- settings drawer */
+.scrim{position:fixed;inset:0;background:rgba(3,6,11,.6);z-index:40}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(560px,100vw);z-index:41;background:var(--bg);border-left:1px solid var(--line-2);display:flex;flex-direction:column;transform:translateX(104%);visibility:hidden;transition:transform .2s ease-out,visibility 0s linear .2s;box-shadow:-18px 0 50px rgba(2,5,10,.5)}
+.drawer.open{transform:none;visibility:visible;transition:transform .2s ease-out}
+.dr-h{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dr-h h2{margin:0;font:600 19px/1 var(--num)}
+.dr-b{flex:1 1 auto;overflow:auto;padding:6px 18px 18px;overscroll-behavior:contain}
+.dr-f{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--line);background:var(--panel)}
+.dr-f .msg{font-size:13.5px;color:var(--muted);min-width:0}
+.dr-f.dirty .msg{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--line-2);background:var(--raise);color:var(--text);font:600 14px/1 var(--num);cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--hover);border-color:#3A4B63}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.solid{background:var(--text);border-color:var(--text);color:var(--ink)}
+.btn.solid:hover:not(:disabled){background:#fff}
+.sgroup{border:0;margin:0;padding:14px 0 6px;border-top:1px solid var(--line)}
+.sgroup:first-child{border-top:0}
+.sgroup h3{margin:4px 0 6px;font:600 15.5px/1.2 var(--num);color:var(--text)}
+.srow2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:9px 0}
+.srow2 label{cursor:pointer;min-width:0}
+.srow2 .sl{display:block;font-size:14px}
+.srow2 .sh{display:block;font-size:12.5px;color:var(--muted);line-height:1.35;margin-top:2px}
+.srow2.wide{grid-template-columns:minmax(0,1fr)}
+.srow2.dirty .sl::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bot);margin-right:7px;vertical-align:1px}
+.srow2.bad input{border-color:var(--dn)}
+.sctl{display:flex;align-items:center;gap:7px}
+.unit{color:var(--muted);font-size:12.5px;min-width:42px}
+input[type=number],input[type=text]{background:var(--panel);border:1px solid var(--line-2);border-radius:7px;color:var(--text);padding:6px 8px;height:34px}
+input[type=number]{font:15px var(--num);font-variant-numeric:tabular-nums;text-align:right;width:96px}
+input.switch{appearance:none;-webkit-appearance:none;width:40px;height:24px;border-radius:999px;background:var(--raise);border:1px solid var(--line-2);position:relative;cursor:pointer;margin:0;flex:none;transition:background .12s,border-color .12s}
+input.switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .12s,background .12s}
+input.switch:checked{background:var(--text-2);border-color:var(--text-2)}
+input.switch:checked::after{transform:translateX(16px);background:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:transparent;border:1px solid var(--line-2);border-radius:999px;color:var(--text-2);font:500 13px/1 var(--num);padding:7px 11px;cursor:pointer}
+.chip[aria-pressed=true]{border-color:var(--dn);color:var(--dn-t);background:rgba(238,90,82,.1);text-decoration:line-through}
+.dr-more{margin:16px 0 0;font-size:13px;color:var(--muted)}
+
+/* ---------- toasts */
+.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--raise);border:1px solid var(--line-2);border-left:3px solid var(--text-2);border-radius:8px;padding:10px 14px;font-size:14px;box-shadow:0 10px 28px rgba(2,5,10,.5);max-width:min(400px,calc(100vw - 32px))}
+.toast.ok{border-left-color:var(--up)}.toast.bad{border-left-color:var(--dn)}
+
+/* ---------- smaller screens */
+@media (max-width:1080px){
+  .home-top,.home-low,.sv-low{grid-template-columns:minmax(0,1fr)}
+  .side{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+}
+@media (max-width:760px){
+  :root{--gut:16px}
+  .side{display:flex}
+  .brand span{display:none}
+  .brand{margin-right:0}
+  .nav{order:9;width:100%;margin:0 -11px}
+  .bar-in{padding-top:8px;padding-bottom:6px;row-gap:6px}
+  .feed small{display:none}
+  main{padding-top:16px}
+  .home-low{margin-top:26px}
+  .stats{gap:8px 24px}
+  .stat b{font-size:19px}
+  .chart-bar{margin-top:18px}
+  .nwchart{height:220px}
+  .stocks-h{display:none}
+  .slist{--cols:minmax(0,1fr) 76px minmax(78px,auto)}
+  .srow{grid-template-areas:"name spark px" "meta meta ch";row-gap:6px;padding:11px 8px}
+  .s-name{grid-area:name}.s-spark{grid-area:spark}.s-px{grid-area:px}.s-ch{grid-area:ch}
+  .s-div,.s-bot{grid-area:meta;text-align:left}
+  .s-div{justify-self:start}
+  .s-bot{justify-self:end;margin-right:4px;max-width:62%}
+  .srow .s-div::after{content:" dividend";color:var(--muted);font-size:12.5px}
+  .tlist li{grid-template-columns:minmax(0,1fr) auto;padding:11px 0}
+  .tlist .tm{grid-column:1/3;order:-1;font-size:12.5px}
+  .tlist .why{grid-column:1/3}
+  .side-s{grid-template-columns:minmax(0,1fr)}
+  .side-s .bt{grid-column:1}
+  .svchart{height:340px}
+}
+@media (max-width:400px){
+  .power{padding-right:12px}
+  .power small{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="#" title="Home"><svg viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#0F1620" stroke="#283446"/><rect x="6" y="13" width="3.6" height="7" rx="1" fill="#2EBF88"/><rect x="11.2" y="9" width="3.6" height="11" rx="1" fill="#DF9F38"/><rect x="16.4" y="5.5" width="3.6" height="14.5" rx="1" fill="#2EBF88"/></svg><span>Screen Stocks bot</span></a>
+    <button class="power" id="arm" role="switch" aria-checked="false" aria-label="Turn automatic trading on or off" title="Turn automatic trading on or off">
+      <span class="trk"><span class="kn"></span></span><span><b id="armState">Bot off</b><small id="armSub">watching only</small></span>
+    </button>
+    <span class="spacer"></span>
+    <span class="feed" id="feed" role="status"><i></i><span class="t">Connecting…</span><small class="age"></small></span>
+    <nav class="nav" aria-label="Pages"><a href="/charts.html" title="Zoomable net worth and stock charts" style="color:#f0b03c;font-weight:600">Zoom charts</a><a href="/analytics.html" title="Profit, win rate and every trade">Performance</a><a href="/wall.html" title="The wall of charts, with every stock at once">All charts</a></nav>
+    <button class="icon-btn" id="setBtn" aria-label="Settings" aria-controls="drawer" aria-expanded="false" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
+  </div>
+</header>
+<div class="banner" id="banner" role="alert" hidden><div><b class="g">!</b><span class="t"></span></div></div>
+
+<main id="main">
+<!-- ============================================================ home -->
+<section id="home" aria-label="Home">
+  <div class="home-top">
+    <section class="hero" aria-label="Net worth">
+      <div class="lbl">Net worth</div>
+      <div class="nw" id="nw">—</div>
+      <div class="stats">
+        <div class="stat" title="Net worth change since the agent started"><b class="n" id="sess">—</b><span id="sessSub">profit this session</span></div>
+        <div class="stat" id="realBox" title="Profit the bot locked in by closing positions, from its saved totals"><b class="n" id="real">—</b><span id="realSub">realized by the bot</span></div>
+      </div>
+      <p class="hero-note" id="heroNote" hidden></p>
+      <div class="chart-bar">
+        <div class="tabs" id="nwTabs" role="group" aria-label="Net worth chart range"></div>
+        <span class="chg" id="nwChg"></span>
+      </div>
+      <div class="plot nwchart" id="nwPlot"></div>
+    </section>
+    <aside class="side">
+      <section class="panel" aria-labelledby="hDoing"><h2 id="hDoing">What the bot is doing</h2><ul class="doing" id="doing"><li>Connecting to the bot…</li></ul></section>
+      <section class="panel" aria-labelledby="hNow">
+        <h2 id="hNow">Right now</h2>
+        <div class="poslist" id="poslist"><div class="none">—</div></div>
+        <dl class="rows">
+          <dt>Parked cash</dt><dd id="parked">—</dd>
+          <dt>Dividends</dt><dd id="divs">—</dd>
+        </dl>
+        <div class="cds">
+          <div class="cd" id="cdBuy"><span class="k">Buy</span><span class="bar"><i></i></span><span class="v">—</span></div>
+          <div class="cd" id="cdShort"><span class="k">Short</span><span class="bar"><i></i></span><span class="v">—</span></div>
+        </div>
+        <div class="pend" id="pend">Orders waiting: —</div>
+      </section>
+    </aside>
+  </div>
+  <div class="home-low">
+    <section aria-labelledby="hLatest">
+      <div class="sec-h"><h2 id="hLatest">Latest trades</h2><a class="more" href="/analytics.html">See all</a></div>
+      <ol class="tlist" id="latest"></ol>
+    </section>
+    <section aria-labelledby="hStocks">
+      <div class="sec-h"><h2 id="hStocks">Stocks</h2><button class="more" id="showAll" type="button" aria-pressed="false" hidden></button></div>
+      <div class="slist" id="slistBox">
+        <div class="stocks-h" aria-hidden="true"><span>Stock</span><span>Last 3 min</span><span>Price</span><span>1 h</span><span>Dividend</span><span>Bot</span></div>
+        <div id="slist"></div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ one stock -->
+<section id="stock" aria-label="Stock" hidden>
+  <a class="back" href="#" id="svBack"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>Home</a>
+  <div class="sv-head">
+    <div class="sv-title"><h1 id="svName">—</h1><small id="svAlt"></small></div>
+    <div class="sv-px n" id="svPx">—</div>
+    <div class="sv-facts">
+      <div class="stat"><b class="n" id="svCh">—</b><span>last hour</span></div>
+      <div class="stat"><b class="n" id="svDiv">—</b><span>dividend a minute</span></div>
+      <div class="stat"><b class="n" id="svReal">—</b><span id="svRealSub">bot profit here</span></div>
+    </div>
+  </div>
+  <div class="sv-hold" id="svHold" hidden></div>
+  <div class="sv-chartbar">
+    <div class="tabs" id="svTabs" role="group" aria-label="Chart range"></div>
+    <div class="tabs" id="svType" role="group" aria-label="Chart type"><button type="button" data-type="line">Line</button><button type="button" data-type="candle">Candles</button></div>
+  </div>
+  <div class="svchart" id="svChart"></div>
+  <div class="legend" aria-hidden="true"><span><i class="tri"></i>buy or cover</span><span><i class="tri dn"></i>sell or short</span><span><i class="box"></i>a closed bot trade</span><span><i></i>bot entry price</span></div>
+  <div class="sv-low">
+    <section aria-labelledby="hStrat"><div class="sec-h"><h2 id="hStrat">How the bot trades it</h2></div><div class="strat" id="svStrat"></div></section>
+    <section aria-labelledby="hSvTrades"><div class="sec-h"><h2 id="hSvTrades">Trades</h2><button class="more" id="svMore" type="button" hidden></button></div><ol class="tlist" id="svTrades"></ol></section>
+  </div>
+</section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Settings" inert>
+  <div class="dr-h"><h2>Settings</h2><span class="spacer"></span><button class="icon-btn" id="drClose" aria-label="Close settings" title="Close (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="dr-b" id="drBody"><div id="sgroups"><p class="empty">Waiting for the bot’s settings…</p></div>
+    <p class="dr-more">Game window controls, re-running backtests, account upgrades and Stop agent are in All charts, under its menu.</p></div>
+  <div class="dr-f" id="drFoot"><span class="msg" id="sbarText">Settings save to the agent’s config file.</span><span class="spacer"></span><button class="btn" id="sDiscard" type="button" disabled>Discard</button><button class="btn solid" id="sSave" type="button" disabled>Save changes</button></div>
+</aside>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+// ================================================================ basics
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('ss3.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ss3.' + k, JSON.stringify(v)); } catch (e) { /* storage off */ } },
+};
+const MINUS = '−';
+const FINAL = ['done', 'missed', 'skipped'];
+function num(v) {
+  if (v == null || v === '' || typeof v === 'boolean') return null;
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const pad2 = n => String(n).padStart(2, '0');
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const dirOf = (v, eps = 1e-9) => v == null ? 'flat' : v > eps ? 'up' : v < -eps ? 'dn' : 'flat';
+const human = k => String(k).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+
+// ---------------------------------------------------------------- numbers
+const SUF = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+function fmtCompact(a) {
+  let tier = Math.floor(Math.log10(a) / 3);
+  if (tier >= SUF.length) return a.toExponential(2).replace('e+', 'e');
+  let x = a / Math.pow(10, tier * 3), str = x.toFixed(x >= 100 ? 1 : x >= 10 ? 2 : 3);
+  if (parseFloat(str) >= 1000 && tier + 1 < SUF.length) { tier++; str = (a / Math.pow(10, tier * 3)).toFixed(3); }
+  return str + SUF[tier];
+}
+/** The big number: every unit under a trillion ("142,934,395"), cents under 10,000. */
+function fmtWhole(v) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v), s = v < 0 ? MINUS : '';
+  if (a < 1e4) return s + a.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  if (a < 1e12) return s + Math.round(a).toLocaleString();
+  return s + fmtCompact(a);
+}
+/** Money in sentences and lists: "+5.9M", "+151.1M", "−840", "+12.40". */
+function fmtM(v, sign = true) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v), s = v < 0 && a >= 0.005 ? MINUS : sign && v > 0 && a >= 0.005 ? '+' : '';
+  if (a < 1000) return s + a.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 2);
+  let i = Math.min(SUF.length - 1, Math.floor(Math.log10(a) / 3)), x = a / Math.pow(1000, i);
+  if (x >= 999.95 && i < SUF.length - 1) { i++; x /= 1000; }
+  return s + x.toFixed(1) + SUF[i];
+}
+const fmtK = fmtM;
+/** Prices: two decimals ("3.36", "21.90"), compact from 10,000. */
+function fmtPx(v) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v);
+  return (v < 0 ? MINUS : '') + (a >= 1e4 ? fmtCompact(a) : a.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+}
+/** Chart prices: four significant digits. */
+function fmtPrice(v) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v);
+  if (a >= 1e4) return (v < 0 ? MINUS : '') + fmtCompact(a);
+  let s = a.toPrecision(4);
+  if (s.includes('e')) s = a.toExponential(2);
+  return (v < 0 ? MINUS : '') + s;
+}
+function fmtQty(v) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v);
+  if (a < 1e4) return (v < 0 ? MINUS : '') + a.toLocaleString(undefined, {maximumFractionDigits: a < 10 ? 2 : 0});
+  return (v < 0 ? MINUS : '') + fmtM(a, false);
+}
+function fmtPct(v, sign = true, d) {
+  v = num(v); if (v == null) return '—';
+  const a = Math.abs(v);
+  if (d == null) d = a >= 100 ? 0 : a >= 10 ? 1 : 2;
+  const t = a.toFixed(d), zero = Number(t) === 0;
+  return (zero ? '' : v < 0 ? MINUS : sign ? '+' : '') + Number(t).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}) + '%';
+}
+function fmtDur(sec) {
+  sec = num(sec); if (sec == null) return '—';
+  sec = Math.max(0, sec);
+  if (sec < 60) return Math.round(sec) + ' s';
+  const m = Math.floor(sec / 60);
+  if (m < 60) return m + ' min';
+  const hh = Math.floor(m / 60);
+  if (hh < 48) return hh + ' h ' + (m % 60) + ' min';
+  return Math.floor(hh / 24) + ' d ' + (hh % 24) + ' h';
+}
+function fmtClock(sec) {
+  sec = Math.max(0, Math.ceil(sec));
+  const hh = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  return hh ? `${hh}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
+}
+/** "a 10-minute average", "its 30-second high" */
+function durAdj(sec) {
+  sec = Math.round(num(sec) || 0);
+  if (sec >= 3600 && sec % 3600 === 0) return (sec / 3600) + '-hour';
+  if (sec >= 60 && sec % 60 === 0) return (sec / 60) + '-minute';
+  return sec + '-second';
+}
+function durNoun(sec) {
+  sec = Math.round(num(sec) || 0);
+  if (sec >= 3600 && sec % 3600 === 0) { const x = sec / 3600; return x + (x === 1 ? ' hour' : ' hours'); }
+  if (sec >= 60 && sec % 60 === 0) { const x = sec / 60; return x + (x === 1 ? ' minute' : ' minutes'); }
+  return sec + (sec === 1 ? ' second' : ' seconds');
+}
+const DTF_T = new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'});
+const DTF_HM = new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+const DTF_D = new Intl.DateTimeFormat(undefined, {month: 'short', day: 'numeric'});
+const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+function fmtTime(ms) { const v = num(ms); return v == null ? '—' : DTF_T.format(new Date(v)); }
+function fmtHM(ms) { const v = num(ms); if (v == null) return '—'; const d = new Date(v); return sameDay(d, new Date()) ? DTF_HM.format(d) : DTF_D.format(d) + ' ' + DTF_HM.format(d); }
+function fmtStamp(ms, secs = true) {
+  const v = num(ms); if (v == null) return '—';
+  const d = new Date(v), t = (secs ? DTF_T : DTF_HM).format(d);
+  return sameDay(d, new Date()) ? t : DTF_D.format(d) + ' ' + t;
+}
+function fmtAgo(ms, now = Date.now()) {
+  const s = Math.max(0, Math.round((now - ms) / 1000));
+  if (s < 60) return s + ' s ago';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min ago';
+  return 'on ' + fmtHM(ms);
+}
+
+// ---------------------------------------------------------------- DOM helpers
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  if (props) for (const k in props) {
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false && c !== '') e.append(c.nodeType ? c : String(c));
+  return e;
+}
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); return e; }
+function setText(e, s) { s = s == null ? '' : String(s); if (e.textContent !== s) e.textContent = s; }
+function setCls(e, c) { if (e.className !== c) e.className = c; }
+function setAttr(e, k, v) {
+  if (v == null || v === false) { if (e.hasAttribute(k)) e.removeAttribute(k); return; }
+  v = v === true ? '' : String(v);
+  if (e.getAttribute(k) !== v) e.setAttribute(k, v);
+}
+function show(e, on) { if (e.hidden === !!on) e.hidden = !on; }
+/** Reuse DOM nodes by key; insert, move or remove only what changed. */
+function syncKeyed(box, items, keyOf, make, update) {
+  const old = box._keyed || new Map(), next = new Map();
+  let prev = null;
+  for (const it of items) {
+    const k = keyOf(it);
+    if (next.has(k)) continue;
+    let node = old.get(k);
+    if (!node) node = make(it);
+    update(node, it);
+    next.set(k, node);
+    const want = prev ? prev.nextSibling : box.firstChild;
+    if (node !== want) box.insertBefore(node, want);
+    prev = node;
+  }
+  for (const [k, node] of old) if (!next.has(k)) node.remove();
+  for (const c of [...box.children]) if (![...next.values()].includes(c)) c.remove();
+  box._keyed = next;
+}
+/** Rebuild a node's children only when its key changes. */
+function patch(el, key, build) {
+  if (el._k === key) return false;
+  el._k = key;
+  const kids = build();
+  el.replaceChildren(...[kids].flat(Infinity).filter(x => x != null && x !== false && x !== '').map(x => x.nodeType ? x : String(x)));
+  return true;
+}
+
+// ================================================================ app state
+const A = {S: null, recvAt: 0, offline: false, everOk: false, stopped: false, armBusy: false, fails: 0, renderMs: 0};
+const UI = {view: 'home', showAll: !!LS.get('showAll', false)};
+const elapsed = () => (performance.now() - A.recvAt) / 1000;
+const nowMs = () => (A.S && num(A.S.now) ? num(A.S.now) + elapsed() * 1000 : Date.now());
+const stockOf = id => ((A.S && A.S.stocks) || []).find(s => s && s.id === id) || null;
+const gameName = s => (s && s.name && s.name !== s.id ? s.name : '');
+const KIND_WORD = {swing: 'swing trade', event: 'pump or crash trade', park: 'parked for dividends', other: 'trade'};
+
+// ---------------------------------------------------------------- network
+async function getJSON(url) {
+  const r = await fetch(url, {cache: 'no-store'});
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+/** POST to the agent, exactly as the old dashboard does (same paths and bodies). */
+async function api(path, body) {
+  try {
+    const r = await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
+    let d = {};
+    try { d = await r.json(); } catch (e) { /* empty body */ }
+    if (r.status === 404 && !d.ok) d = Object.assign({ok: false, missing: true, error: 'not supported by this agent version'}, d);
+    if (!r.ok && d.ok == null) d.ok = false;
+    return d;
+  } catch (e) {
+    return {ok: false, error: 'agent unreachable'};
+  }
+}
+function errText(r) {
+  if (r.errors && typeof r.errors === 'object' && Object.keys(r.errors).length) return Object.entries(r.errors).map(([k, v]) => `${human(k)}: ${v}`).join('; ');
+  return r.error || r.msg || 'unknown error';
+}
+function toast(msg, kind = '', ms = 3800) {
+  const t = h('div', {class: 'toast ' + kind, text: msg});
+  $('toasts').append(t);
+  setTimeout(() => t.remove(), ms);
+}
+
+// ================================================================ trades: records, round trips, positions
+const ACT = a => { a = String(a || ''); return a.startsWith('buy') ? 'buy' : a.startsWith('sell') ? 'sell' : a.startsWith('short') ? 'short' : a.startsWith('cover') ? 'cover' : a.startsWith('close') ? 'close' : ''; };
+const isBot = t => t.source === 'bot' || t.counted === true;
+const fillOf = t => { const k = ACT(t.action), f = k === 'buy' || k === 'short' ? num(t.fillEntry) : num(t.fillExit); return f ?? num(t.price) ?? num(t.sentPrice); };
+/** Every trade record seen (from /api/state's recent list and /api/trades), by time, stock and action. */
+const TR = {map: new Map(), ver: 0, since: Infinity, busy: false, api: null, lastBot: new Map()};
+function addTrades(list) {
+  let ch = false;
+  for (const t of list || []) {
+    let tm = num(t && t.t);
+    if (tm == null || !t.stock) continue;
+    if (tm < 1e11) tm *= 1000;
+    const k = tm + '|' + t.stock + '|' + t.action, sig = [t.status, t.pnl, t.fillEntry, t.fillExit, t.shares, t.counted, t.why].join('|'), old = TR.map.get(k);
+    if (old && old._sig === sig) continue;
+    TR.map.set(k, Object.assign({}, t, {t: tm, _sig: sig}));
+    ch = true;
+  }
+  if (!ch) return;
+  TR.ver++;
+  TR.lastBot.clear();
+  for (const t of TR.map.values()) if (t.status === 'done' && isBot(t) && t.t > (TR.lastBot.get(t.stock) || 0)) TR.lastBot.set(t.stock, t.t);
+}
+async function loadTrades(sinceMs) {
+  if (TR.busy || TR.api === false || A.offline || sinceMs >= TR.since) return;
+  TR.busy = true;
+  try {
+    const d = await getJSON(`/api/trades?since=${Math.max(0, Math.floor(sinceMs))}&limit=5000`);
+    addTrades(d.trades || []);
+    TR.api = true; TR.since = sinceMs;
+    if (A.S) render();
+  } catch (e) { if (e.status === 404) TR.api = false; } finally { TR.busy = false; }
+}
+function inferKind(why) {
+  const w = String(why || '').toLowerCase();
+  if (!w) return null;
+  if (/^park|park idle|dividend/.test(w)) return 'park';
+  if (/^swing|backtest/.test(w)) return 'swing';
+  if (/^(pump|fade|crash|rebound)\b|pump\s*(→|->)|crash\s*(→|->)|pump fade|crash bottom|event over|pump coming|crash coming/.test(w)) return 'event';
+  return null;
+}
+function normRec(x) {
+  const action = String(x.action || ''), v = ACT(action), close = v === 'sell' || v === 'cover' || v === 'close';
+  return {
+    t: num(x.t), stock: String(x.stock || '?'), action,
+    full: close && (/max$/.test(action) || num(x.percent) >= 100),
+    open: v === 'buy' || v === 'short', close,
+    side: v === 'buy' || v === 'sell' ? 'long' : v === 'short' || v === 'cover' ? 'short' : null,
+    done: x.status === 'done', bot: x.source === 'bot',
+    mine: x.counted != null ? !!x.counted : x.source === 'bot',
+    why: String(x.why || ''), kind: ['swing', 'event', 'park'].includes(x.kind) ? x.kind : null,
+    pnl: num(x.pnl), pnlPct: num(x.pnlPct), fillEntry: num(x.fillEntry), fillExit: num(x.fillExit), shares: num(x.shares), price: num(x.price),
+  };
+}
+/** Pair the bot's entries with the exits that close them: one round trip per position (an exit in pieces stays one trip). */
+function buildTrips(recs) {
+  const trips = [], cur = new Map();
+  const lastT = tr => { const a = tr.exits.length ? tr.exits : tr.entries; return a.length ? a[a.length - 1].t : 0; };
+  for (const r of recs) {
+    if (!r.done) continue;
+    if (r.open) {
+      if (!r.bot) continue;
+      const key = r.stock + '|' + r.side;
+      let tr = cur.get(key);
+      if (tr && !tr.exits.length) { tr.entries.push(r); continue; }
+      if (tr) tr.done = true;
+      tr = {stock: r.stock, side: r.side, entries: [r], exits: [], done: false};
+      cur.set(key, tr); trips.push(tr);
+    } else if (r.close) {
+      if (!r.mine) continue;
+      let side = r.side, tr = side ? cur.get(r.stock + '|' + side) : null;
+      if (!side) {
+        const a = cur.get(r.stock + '|long'), b = cur.get(r.stock + '|short');
+        tr = a && b ? (lastT(a) > lastT(b) ? a : b) : a || b;
+        side = tr ? tr.side : 'long';
+      }
+      if (!tr) { tr = {stock: r.stock, side, entries: [], exits: [], done: false}; trips.push(tr); cur.set(r.stock + '|' + side, tr); }
+      tr.exits.push(r);
+      if (r.full) { tr.done = true; cur.delete(r.stock + '|' + side); }
+    }
+  }
+  return trips;
+}
+function wavgK(list, k) {
+  let s = 0, w = 0;
+  for (const x of list) { if (!(x[k] > 0)) continue; const ww = x.shares > 0 ? x.shares : 1; s += x[k] * ww; w += ww; }
+  return w > 0 ? s / w : null;
+}
+function finishTrip(tr) {
+  const e0 = tr.entries[0] || null, xs = tr.exits, xl = xs[xs.length - 1] || null;
+  tr.entryT = e0 ? e0.t : null;
+  tr.exitT = xl ? xl.t : null;
+  tr.kind = (e0 && (e0.kind || inferKind(e0.why))) || (xl && (xl.kind || inferKind(xl.why))) || 'other';
+  tr.label = e0 ? e0.why.split(' · ')[0].trim() : '';
+  let pnl = 0, basis = 0, known = xs.length > 0;
+  for (const x of xs) {
+    if (x.pnl == null) { known = false; continue; }
+    pnl += x.pnl;
+    const b = x.shares > 0 && x.fillEntry > 0 ? x.shares * x.fillEntry : x.pnlPct ? x.pnl / (x.pnlPct / 100) : null;
+    if (b > 0) basis += b;
+  }
+  tr.money = known ? pnl : null;
+  tr.pct = known && basis > 0 ? pnl / basis * 100 : xs.length === 1 && xs[0].pnlPct != null ? xs[0].pnlPct : null;
+  tr.est = false;
+  if (tr.pct == null && xl) {
+    const m = /\((?:median\s+)?([+\-−]?\d+(?:\.\d+)?)%/.exec(xl.why);
+    if (m) { tr.pct = parseFloat(m[1].replace('−', '-')); tr.est = true; }
+  }
+  const xe = xs.find(x => x.fillEntry > 0);
+  tr.entryPx = xe ? xe.fillEntry : wavgK(tr.entries, 'fillEntry') ?? (e0 ? e0.price : null);
+  tr.exitPx = wavgK(xs, 'fillExit') ?? (xl ? xl.price : null);
+  tr.held = tr.entryT != null && tr.exitT != null ? (tr.exitT - tr.entryT) / 1000 : null;
+  tr.closed = xs.length > 0;
+  tr.win = tr.money != null ? tr.money > 0 : tr.pct != null ? tr.pct > 0 : null;
+}
+const TRIPS = {ver: -1, list: []};
+function allTrips() {
+  if (TRIPS.ver === TR.ver) return TRIPS.list;
+  const recs = [];
+  for (const x of TR.map.values()) { const r = normRec(x); if (r.t != null) recs.push(r); }
+  recs.sort((a, b) => a.t - b.t);
+  const list = buildTrips(recs);
+  for (const tr of list) finishTrip(tr);
+  TRIPS.ver = TR.ver; TRIPS.list = list;
+  return list;
+}
+/** Is the bot still in this trip right now? */
+function tripLive(tr) {
+  if (tr.done) return false;
+  const b = (stockOf(tr.stock) || {}).bot;
+  return !!(b && b.side === tr.side && b.state !== 'opening');
+}
+/** A round trip in plain words: {what: "Bought $STEAM 3.36 → sold 6.10", res: "+5.9M", pct: "+81%", cls}. */
+function tripWords(tr) {
+  const long = tr.side !== 'short', live = tripLive(tr);
+  const IN = long ? 'Bought' : 'Shorted', OUT = long ? 'sold' : 'covered';
+  const w = {pre: IN, stock: tr.stock, mid: '', res: '', pct: '', cls: 'flat', live};
+  if (!tr.closed) {
+    w.mid = tr.entryPx != null ? ' ' + fmtPx(tr.entryPx) : '';
+    const st = stockOf(tr.stock), lp = st && livePos(st);
+    if (live && lp) { w.res = fmtM(lp.money); w.pct = 'now ' + fmtPct(lp.pct); w.cls = dirOf(lp.money, 0.005); w.mid += ', holding'; }
+    else w.mid += live ? ', holding' : ', no exit recorded';
+    return w;
+  }
+  if (!tr.entries.length && tr.entryPx == null) { w.pre = cap1(OUT); w.mid = tr.exitPx != null ? ' at ' + fmtPx(tr.exitPx) : ''; }
+  else w.mid = `${tr.entryPx != null ? ' ' + fmtPx(tr.entryPx) : ''} → ${OUT}${!tr.done && live ? ' part' : ''}${tr.exitPx != null ? ' ' + fmtPx(tr.exitPx) : ''}`;
+  if (tr.money != null) { w.res = fmtM(tr.money); w.pct = tr.pct != null ? fmtPct(tr.pct) : ''; w.cls = dirOf(tr.money, 0.005); }
+  else if (tr.pct != null) { w.res = '≈ ' + fmtPct(tr.pct); w.cls = dirOf(tr.pct, 0.005); }
+  return w;
+}
+function tripWhy(tr) {
+  const bits = [cap1(KIND_WORD[tr.kind] || 'trade')];
+  if (tr.held != null) bits.push('held ' + fmtDur(tr.held));
+  if (tr.est) bits.push('result estimated from the agent’s note');
+  return bits.join(', ');
+}
+function tripItem(li, tr, withWhy) {
+  const w = tripWords(tr), t = tr.closed ? tr.exitT : tr.entryT;
+  patch(li, [w.pre, w.stock, w.mid, w.res, w.pct, w.cls, t, withWhy].join('|'), () => {
+    setCls(li, w.live && !tr.closed ? 'open' : '');
+    const kids = [h('span', {class: 'tm', text: t ? DTF_HM.format(new Date(t)) : ''}),
+      h('span', {class: 'what'}, w.pre + ' ', h('b', {text: w.stock}), h('span', {class: 'n', text: w.mid})),
+      h('span', {class: 'res ' + w.cls}, w.res || '', w.pct ? h('small', {text: w.pct}) : '')];
+    if (withWhy) kids.push(h('span', {class: 'why', text: tripWhy(tr)}));
+    return kids;
+  });
+  setAttr(li, 'title', (tr.closed ? 'Closed ' : 'Opened ') + fmtStamp(t) + (tr.label ? '. Strategy: ' + tr.label : ''));
+}
+
+/** The position the game shows for a stock right now (the bot's, or the player's own). */
+function livePos(st) {
+  const price = num(st.price), owned = num(st.owned) || 0, shorted = num(st.shorted) || 0, b = st.bot;
+  let side = null, entry = null, shares = 0;
+  if (b && b.state !== 'opening' && num(b.entry) > 0) {
+    side = b.side === 'short' ? 'S' : 'L';
+    shares = side === 'L' ? owned : shorted;
+    entry = (side === 'L' ? num(st.avgBuy) : num(st.avgShort)) || num(b.entry);
+  } else if (owned > 0 && num(st.avgBuy) > 0) { side = 'L'; entry = num(st.avgBuy); shares = owned; }
+  else if (shorted > 0 && num(st.avgShort) > 0) { side = 'S'; entry = num(st.avgShort); shares = shorted; }
+  if (!side || !(shares > 0) || !(price > 0) || !(entry > 0)) return null;
+  const pct = side === 'L' ? (price / entry - 1) * 100 : (1 - price / entry) * 100;
+  let money = side === 'L' ? (price - entry) * shares : (entry - price) * shares;
+  const up = num(st.upnl);
+  if (up != null && !(owned > 0 && shorted > 0)) money = up;
+  let t0 = b ? num(b.entryT) : null;
+  if (t0 != null) t0 = t0 > 1e11 ? t0 / 1000 : t0;
+  return {side, entry, shares, pct, money, price, bot: !!b, kind: b ? b.kind : null, t0, label: b ? b.label || '' : ''};
+}
+
+// ================================================================ strategies in plain words
+/** "long dip 35% vs 600s avg, exit +5%, max 900s" -> "Buys when …". Labels come from brain.describe(). */
+const timeExitOn = S => !(S && S.cfg && S.cfg.swingTimeExit === false);   // older agents: the label says
+function stratWords(label, timeExit = true) {
+  const L = String(label || '').trim();
+  let m, s = null, max = null;
+  const mx = /, max (\d+)s$/.exec(L);
+  if (mx && timeExit) max = +mx[1];
+  const core = L.replace(/, max \d+s$/, '');
+  const med = /, (\d+)s median/.exec(core);
+  const c = core.replace(/, \d+s median/, '');
+  if ((m = /^(long|short) (dip|spike) (\d+(?:\.\d+)?)% vs (\d+)s avg, exit [+-](\d+(?:\.\d+)?)%$/.exec(c))) {
+    s = m[1] === 'long'
+      ? `Buys when the price drops ${m[3]}% below its ${durAdj(m[4])} average, and sells once it is ${m[5]}% above that average.`
+      : `Shorts when the price jumps ${m[3]}% above its ${durAdj(m[4])} average, and covers once it is ${m[5]}% below that average.`;
+  } else if ((m = /^(long|short) swing turn (\d+(?:\.\d+)?)% around (\d+)s avg$/.exec(c))) {
+    s = m[1] === 'long'
+      ? `Buys when a ${m[2]}% dip under its ${durAdj(m[3])} average turns back up, and sells after a ${m[2]}% pullback from its best price.`
+      : `Shorts when a ${m[2]}% jump over its ${durAdj(m[3])} average turns back down, and covers after a ${m[2]}% bounce from its lowest price.`;
+  } else if ((m = /^buy (\d+(?:\.\d+)?)% crash \((\d+)s\), sell \+(\d+(?:\.\d+)?)%$/.exec(c))) {
+    s = `Buys when the price falls ${m[1]}% below its ${durAdj(m[2])} high, and sells ${m[3]}% above the buy price.`;
+  } else if ((m = /^short (\d+(?:\.\d+)?)% spike \((\d+)s\), cover -(\d+(?:\.\d+)?)%$/.exec(c))) {
+    s = `Shorts when the price jumps ${m[1]}% above its ${durAdj(m[2])} low, and covers ${m[3]}% below the short price.`;
+  } else if ((m = /^(long|short) when calm \(<(\d+(?:\.\d+)?)% in (\d+)s\), take [+-](\d+(?:\.\d+)?)%$/.exec(c))) {
+    s = m[1] === 'long'
+      ? `Buys when the price has moved less than ${m[2]}% in ${durNoun(m[3])}, and sells ${m[4]}% higher.`
+      : `Shorts when the price has moved less than ${m[2]}% in ${durNoun(m[3])}, and covers ${m[4]}% lower.`;
+  } else if ((m = /^ride (climb|slide) (\d+(?:\.\d+)?)%\/(\d+)s, trail (\d+(?:\.\d+)?)%$/.exec(c))) {
+    s = m[1] === 'climb'
+      ? `Buys a ${m[2]}% climb over ${durNoun(m[3])}, and sells after a ${m[4]}% drop from the top.`
+      : `Shorts a ${m[2]}% slide over ${durNoun(m[3])}, and covers after a ${m[4]}% bounce from the bottom.`;
+  }
+  if (!s) return L ? 'Strategy: ' + L + '.' : '';
+  if (med) s += ` It smooths prices over ${durNoun(med[1])}.`;
+  if (max) s += ` It gives up after ${durNoun(max)}.`;
+  return s;
+}
+/** What the bot waits for to close its position, from the strategy it opened with. */
+function exitWords(st, b, S) {
+  const long = b.side !== 'short', e = num(b.fillEntry) || num(b.entry), cfg = (S && S.cfg) || {};
+  const out = long ? 'sells' : 'covers';
+  if (b.kind === 'park') return num(cfg.parkStopLoss) > 0 ? `It sells after a ${cfg.parkStopLoss}% drop, or when it needs the cash.` : 'It sells when it needs the cash for a trade.';
+  if (b.kind === 'event') {
+    const ev = ((S && S.events) || []).find(x => String(x.id) === String(b.ev));
+    if (ev && ev.note) return cap1(ev.note) + '.';
+    return '';
+  }
+  const s = b.strat || {}, lab = String(b.label || '');
+  let w = '';
+  if (s.kind === 'rev' && s.x != null && s.w) w = `It ${out} when the price is ${Math.round(s.x * 100)}% ${long ? 'above' : 'below'} its ${durAdj(s.w)} average`;
+  else if ((s.kind === 'crash' || s.kind === 'calm') && s.tp != null && e > 0) w = `It ${out} at ${fmtPx(long ? e * (1 + s.tp) : e * (1 - s.tp))} (${long ? '+' : MINUS}${Math.round(s.tp * 100)}%)`;
+  else if (s.kind === 'turn' && s.r != null) w = `It ${out} after a ${Math.round(s.r * 100)}% ${long ? 'pullback' : 'bounce'} past its average`;
+  else if (s.kind === 'trend' && s.tr != null) w = `It ${out} after a ${Math.round(s.tr * 100)}% ${long ? 'drop from the top' : 'bounce from the bottom'}`;
+  else if (lab) { const sw = stratWords(lab); const m = /, and ((?:sells|covers)[^.]*)\./.exec(sw); if (m) w = 'It ' + m[1]; }
+  const mx = /, max (\d+)s/.exec(lab), t0 = num(b.entryT);
+  if (w && mx && t0 && timeExitOn(S)) w += `, or at ${fmtHM(t0 + mx[1] * 1000)}`;
+  return w ? w + '.' : '';
+}
+
+// ================================================================ drawing: shared helpers
+const TH = {};
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['bg', 'panel', 'raise', 'grid', 'line', 'line-2', 'text', 'text-2', 'muted', 'faint', 'up', 'dn', 'up-t', 'dn-t', 'bot', 'bot-t', 'ink', 'ev', 'ev-t', 'cross', 'warn'])
+    TH[k] = cs.getPropertyValue('--' + k).trim();
+  TH.num = cs.getPropertyValue('--num').trim() || 'Bahnschrift, sans-serif';
+}
+readTheme();
+const F_AX = `13px ${TH.num}`, F_TAG = `600 12.5px ${TH.num}`, F_MSG = `500 14px ${TH.num}`, F_FLAG = `700 10.5px ${TH.num}`, F_MKL = `600 12px ${TH.num}`;
+function rgb(c) {
+  c = String(c).trim();
+  if (c.startsWith('rgb')) { const m = c.match(/[\d.]+/g) || [0, 0, 0]; return [+m[0], +m[1], +m[2]]; }
+  let x = c.replace('#', '');
+  if (x.length === 3) x = x.split('').map(ch => ch + ch).join('');
+  return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)];
+}
+function rgba(c, a) { const [r, g, b] = rgb(c); return `rgba(${r},${g},${b},${a})`; }
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function linTicks(lo, hi, n) {
+  if (!(hi > lo)) return {step: 1, vals: [lo], log: false};
+  const step = niceStep((hi - lo) / Math.max(1, n)), vals = [];
+  for (let v = Math.ceil(lo / step) * step, i = 0; v <= hi + step * 1e-9 && i < 60; v += step, i++) vals.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return {step, vals, log: false};
+}
+function logTicks(lo, hi, n) {
+  for (const ms of [[1, 2, 3, 5, 7], [1, 2, 5], [1, 3], [1]]) {
+    const vals = [];
+    for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++)
+      for (const m of ms) { const v = m * Math.pow(10, e); if (v >= lo && v <= hi) vals.push(v); }
+    if (vals.length <= n + 1 || ms.length === 1) return {step: null, vals, log: true};
+  }
+  return {step: null, vals: [], log: true};
+}
+function decimalsFor(step) { if (!(step > 0)) return 2; let d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); if (Math.abs(step / Math.pow(10, -d) - 2.5) < 1e-6) d++; return Math.min(d, 8); }
+function priceAxisLabel(v, step) {
+  if (step == null) return fmtPrice(v);
+  if (Math.abs(v) >= 1e4) return fmtCompact(Math.abs(v));
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(decimalsFor(step));
+}
+/** Money axis: one label style per axis (0 / 1,000 / 2,000 or 0 / 50M / 100M). */
+function moneyAxis(step, maxAbs) {
+  if (!(maxAbs >= 1e4)) { const d = decimalsFor(step); return v => (Math.abs(v) < step * 1e-6 ? '0' : (v < 0 ? MINUS : '') + Math.abs(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d})); }
+  const tier = Math.min(SUF.length - 1, Math.floor(Math.log10(maxAbs) / 3)), div = Math.pow(10, tier * 3), d = decimalsFor(step / div);
+  return v => (Math.abs(v) < step * 1e-6 ? '0' : (v < 0 ? MINUS : '') + (Math.abs(v) / div).toFixed(d) + SUF[tier]);
+}
+function quant(arr, q) {
+  if (!arr.length) return null;
+  const s = Float64Array.from(arr).sort(), i = (s.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+  return s[lo] + (s[hi] - s[lo]) * (i - lo);
+}
+const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 604800, 1209600, 2592000];
+function alignUp(t, I) {
+  if (I < 86400) { const off = -new Date(t * 1000).getTimezoneOffset() * 60; return Math.ceil((t + off) / I) * I - off; }
+  const d = new Date(t * 1000);
+  if (I >= 2592000) { d.setDate(1); d.setHours(0, 0, 0, 0); if (d.getTime() / 1000 < t) d.setMonth(d.getMonth() + 1); return d.getTime() / 1000; }
+  d.setHours(0, 0, 0, 0);
+  if (d.getTime() / 1000 < t) d.setDate(d.getDate() + 1);
+  return d.getTime() / 1000;
+}
+function nextTick(t, I) {
+  if (I < 86400) return t + I;
+  const d = new Date(t * 1000);
+  if (I >= 2592000) d.setMonth(d.getMonth() + 1); else d.setDate(d.getDate() + Math.round(I / 86400));
+  return d.getTime() / 1000;
+}
+function tickLabel(t, I) {
+  const d = new Date(t * 1000);
+  if (I >= 86400 || (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0)) return DTF_D.format(d);
+  return (I < 60 ? DTF_T : DTF_HM).format(d);
+}
+function roundRect(g, x, y, w, hh, r) {
+  r = Math.max(0, Math.min(r, w / 2, hh / 2));
+  g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + hh - r);
+  g.quadraticCurveTo(x + w, y + hh, x + w - r, y + hh); g.lineTo(x + r, y + hh); g.quadraticCurveTo(x, y + hh, x, y + hh - r);
+  g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath();
+}
+function tri(g, x, y, s, up) { g.beginPath(); if (up) { g.moveTo(x, y - s); g.lineTo(x + s, y + s * 0.8); g.lineTo(x - s, y + s * 0.8); } else { g.moveTo(x, y + s); g.lineTo(x + s, y - s * 0.8); g.lineTo(x - s, y - s * 0.8); } g.closePath(); g.fill(); }
+function message(g, W, H, text) {
+  g.font = F_MSG; g.fillStyle = TH.muted; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const words = String(text).split(' '), lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > Math.min(460, W - 40) && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur);
+  lines.forEach((l, i) => g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * 20));
+  g.textAlign = 'left';
+  return null;
+}
+function tag(g, x, y, w, text, bg, fg) {
+  roundRect(g, x, y - 9, w, 18, 4); g.fillStyle = bg; g.fill();
+  g.fillStyle = fg; g.font = F_TAG; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x + w / 2, y + 0.5);
+  g.textAlign = 'left';
+}
+function px(dpr) { const lw = Math.max(1, Math.round(dpr)); return {hair: lw / dpr, crisp: v => (Math.round(v * dpr - lw / 2) + lw / 2) / dpr}; }
+
+/** Time axis with long holes (the agent or the game was off) squeezed to a sliver. times in ms, ascending. */
+function makeAxis(times, tA, tB, stepMs) {
+  stepMs = Math.max(1000, stepMs || 10000);
+  if (!(tB > tA)) { tA -= 30000; tB += 30000; }
+  const gapMin = Math.max(stepMs * 12, (tB - tA) * 0.04, 180000), segs = [];
+  let s0 = tA, prev = tA;
+  for (const t of times) {
+    if (t < tA || t > tB) continue;
+    if (t - prev > gapMin) { segs.push([s0, prev]); s0 = t; }
+    if (t > prev) prev = t;
+  }
+  segs.push([s0, Math.max(prev, tB)]);
+  const len = s => Math.max(s[1] - s[0], stepMs);
+  const real = segs.reduce((a, s) => a + len(s), 0), gapU = Math.max(stepMs * 3, real * 0.015);
+  let u = 0;
+  for (const s of segs) { s[2] = u; u += len(s) + gapU; }
+  const total = u - gapU;
+  const U = t => {
+    let lo = 0, hi = segs.length - 1;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (segs[m][0] <= t) lo = m; else hi = m - 1; }
+    const s = segs[lo], nx = segs[lo + 1];
+    if (t <= s[1] || !nx) return s[2] + clamp(t - s[0], 0, Math.max(len(s), t - s[0]));
+    return s[2] + len(s) + (t - s[1]) / (nx[0] - s[1]) * gapU;
+  };
+  const T = uu => {
+    let lo = 0, hi = segs.length - 1;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (segs[m][2] <= uu) lo = m; else hi = m - 1; }
+    const s = segs[lo], nx = segs[lo + 1], l = len(s);
+    if (uu <= s[2] + l || !nx) return s[0] + (uu - s[2]);
+    return s[1] + (uu - s[2] - l) / gapU * (nx[0] - s[1]);
+  };
+  return {segs, gapU, total, U, T};
+}
+function xMap(ax, left, right) {
+  const span = Math.max(ax.total, 1) * 1.02, k = (right - left) / span;
+  return {X: t => left + ax.U(t) * k, iX: x => ax.T((x - left) / k), k};
+}
+function timeTicks(ax, M, left, right, minGap) {
+  const msPerPx = 1 / M.k, I = TIME_STEPS.find(s => s * 1000 / msPerPx >= minGap) || TIME_STEPS[TIME_STEPS.length - 1], out = [];
+  let lastX = -1e9, n = 0;
+  for (const s of ax.segs) {
+    for (let t = alignUp(s[0] / 1000, I); t * 1000 <= s[1] && n < 300; t = nextTick(t, I), n++) {
+      const x = M.X(t * 1000);
+      if (x < left + 20 || x > right - 20 || x - lastX < minGap * 0.8) continue;
+      lastX = x; out.push({x, label: tickLabel(t, I)});
+    }
+  }
+  return out;
+}
+
+/** A canvas chart frame: size, hover, keyboard stepping, tooltip. The painter draws from the model. */
+class Plot {
+  constructor(host, painter, label) {
+    this.host = host; this.painter = painter;
+    this.cv = h('canvas', {tabindex: '0', role: 'img', 'aria-label': label});
+    this.tip = h('div', {class: 'tip', hidden: true, 'aria-hidden': 'true'});
+    host.append(this.cv, this.tip);
+    this.g = this.cv.getContext('2d');
+    this.W = 0; this.H = 0; this.dpr = 1; this.raf = 0; this.model = null; this.hover = null; this.stops = []; this.tipKey = '';
+    const cv = this.cv, at = e => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, touch: e.pointerType === 'touch'}; };
+    cv.addEventListener('pointermove', e => { this.hover = at(e); this.draw(); });
+    cv.addEventListener('pointerdown', e => { this.hover = at(e); this.draw(); });
+    cv.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { this.hover = null; this.draw(); } });
+    cv.addEventListener('keydown', e => this.key(e));
+    cv.addEventListener('blur', () => { if (this.hover && this.hover.kbd) { this.hover = null; this.draw(); } });
+    new ResizeObserver(() => this.resize()).observe(host);
+  }
+  set(model) { this.model = model; this.draw(); }
+  draw() { if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.paint(); }); }
+  resize() {
+    const r = this.host.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const w = Math.floor(r.width), hh = Math.floor(r.height);
+    if (w === this.W && hh === this.H && dpr === this.dpr) return;
+    this.W = w; this.H = hh; this.dpr = dpr;
+    this.cv.width = Math.max(1, Math.round(w * dpr)); this.cv.height = Math.max(1, Math.round(hh * dpr));
+    if (this.hover && !this.hover.kbd && !this.hover.touch) this.hover = null;
+    this.paint();
+  }
+  key(e) {
+    const S = this.stops;
+    if (e.key === 'Escape') { this.hover = null; this.draw(); return; }
+    if (!S.length || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const cx = this.hover ? this.hover.x : null;
+    let i;
+    if (e.key === 'Home') i = 0;
+    else if (e.key === 'End') i = S.length - 1;
+    else if (cx == null) i = e.key === 'ArrowRight' ? 0 : S.length - 1;
+    else if (e.key === 'ArrowRight') { i = S.findIndex(s => s.x > cx + 0.5); if (i < 0) i = S.length - 1; }
+    else { i = 0; for (let k = S.length - 1; k >= 0; k--) if (S[k].x < cx - 0.5) { i = k; break; } }
+    this.hover = {x: S[i].x, y: S[i].y, kbd: true};
+    this.draw();
+  }
+  paint() {
+    const g = this.g, W = this.W, H = this.H;
+    if (!W || !H || document.hidden) return;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    this.stops = [];
+    let out = null;
+    try { out = this.painter(g, W, H, this.model, this); } catch (err) { console.error(err); out = null; }
+    this.showTip(out);
+  }
+  showTip(out) {
+    const tip = this.tip;
+    if (!out || !out.items || !out.items.length) { if (!tip.hidden) tip.hidden = true; return; }
+    const key = JSON.stringify(out.items);
+    if (key !== this.tipKey) { tip.replaceChildren(...out.items.map(it => h('div', {class: it.cls || 't2', text: it.text}))); this.tipKey = key; }
+    tip.hidden = false;
+    const W = this.W, H = this.H, w = tip.offsetWidth, hh = tip.offsetHeight;
+    let x = out.x + 16, y = out.y - hh - 12;
+    if (x + w > W - 4) x = out.x - w - 16;
+    if (x < 4) x = clamp(out.x - w / 2, 4, Math.max(4, W - w - 4));
+    if (y < 4) y = out.y + 18;
+    if (y + hh > H - 2) y = Math.max(2, H - hh - 2);
+    tip.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
+  }
+}
+document.addEventListener('pointerdown', e => { const p = NWP; if (p && p.hover && p.hover.touch && e.target !== p.cv) { p.hover = null; p.draw(); } });
+
+// ================================================================ net worth chart
+const NW_RANGES = [[3600, '1H', 'the last hour'], [21600, '6H', 'the last 6 hours'], [86400, '1D', 'the last day'], [0, 'All', 'all time']];
+const NW = {range: LS.get('nwRange', 3600), pts: [], live: [], step: 10000, at: 0, busy: false, gen: 0, api: null, key: ''};
+if (!NW_RANGES.some(r => r[0] === NW.range)) NW.range = 3600;
+/** Big cash moves outside trades (upgrades bought, rewards), from the agent's log note
+ *  "cash -152,000,000.00 without a trade (spending): ...". Kept so the net-worth chart can mark them. */
+const FLOWS = {list: (LS.get('flows', []) || []).filter(f => f && num(f.t) != null && num(f.cash) != null), ver: 0};
+const FLOW_RE = /^cash ([+\-−]?[\d,]+(?:\.\d+)?) without a trade \(([^)]+)\)/;
+function collectFlows(S) {
+  let ch = false;
+  const have = new Set(FLOWS.list.map(f => f.t));
+  for (const e of S.log || []) {
+    const t = num(e && e.t), m = FLOW_RE.exec(String((e && e.msg) || ''));
+    if (!m || t == null || have.has(t)) continue;
+    const cash = parseFloat(m[1].replace(/,/g, '').replace('−', '-'));
+    if (!Number.isFinite(cash) || m[2] === 'dividends') continue;
+    FLOWS.list.push({t, cash, why: m[2]}); have.add(t); ch = true;
+  }
+  if (!ch) return;
+  FLOWS.list.sort((a, b) => a.t - b.t);
+  if (FLOWS.list.length > 60) FLOWS.list.splice(0, FLOWS.list.length - 60);
+  FLOWS.ver++;
+  LS.set('flows', FLOWS.list);
+}
+const flowWord = f => f.cash < 0 ? `Spent ${fmtM(-f.cash, false)} in the game` : `The game paid ${fmtM(f.cash, false)}`;
+function normNW(list) {
+  const out = [];
+  for (const x of list || []) {
+    let t, v, c = null;
+    if (Array.isArray(x)) { t = num(x[0]); v = num(x[1]); c = num(x[2]); }
+    else if (x && typeof x === 'object') { t = num(x.t); v = num(x.nw ?? x.netWorth ?? x.v); c = num(x.cash); }
+    if (t == null || v == null) continue;
+    if (t < 1e11) t *= 1000;
+    out.push({t, v, c});
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+async function fetchNW(force) {
+  if (NW.busy || A.offline) return;
+  const r = NW.range, gen = NW.gen, every = r && r <= 3600 ? 10000 : r && r <= 21600 ? 30000 : 60000;
+  if (!force && Date.now() - NW.at < every) return;
+  NW.busy = true;
+  try {
+    if (NW.api === false) { NW.pts = normNW(A.S && A.S.nw); NW.step = 5000; NW.at = Date.now(); }
+    else {
+      const d = await getJSON('/api/nw?range=' + r);
+      if (gen !== NW.gen) return;
+      NW.api = true;
+      NW.pts = normNW(Array.isArray(d) ? d : d && d.points);
+      NW.step = Math.max(1000, num(d && d.step) || 10000);
+      NW.at = Date.now();
+    }
+    const lastT = NW.pts.length ? NW.pts[NW.pts.length - 1].t : 0;
+    NW.live = NW.live.filter(p => p.t > lastT);
+    $('nwPlot').classList.remove('stale');
+    renderNWChart();
+  } catch (e) {
+    if (e.status === 404) { NW.api = false; NW.busy = false; return fetchNW(true); }
+  } finally {
+    NW.busy = false;
+    if (gen !== NW.gen) fetchNW(true);
+  }
+}
+function setNWRange(r) {
+  if (r === NW.range) return;
+  NW.range = r; LS.set('nwRange', r); NW.gen++; NW.at = 0;
+  $('nwPlot').classList.add('stale');
+  renderNWTabs(); renderNWChart(); fetchNW(true);
+}
+function renderNWTabs() { for (const b of $('nwTabs').children) setAttr(b, 'aria-pressed', String(Number(b.dataset.r) === NW.range)); }
+/** The live net worth from every /api/state poll extends the line between history fetches. */
+function nwLive(S) {
+  const v = num(S.player && S.player.netWorth), t = num(S.now);
+  if (!S.fresh || !(v > 0) || t == null) return;
+  const last = NW.live.length ? NW.live[NW.live.length - 1] : NW.pts[NW.pts.length - 1];
+  if (last && t - last.t < 1500) { if (NW.live.length && last === NW.live[NW.live.length - 1]) { last.v = v; last.c = num(S.player.cash); } return; }
+  NW.live.push({t, v, c: num(S.player.cash)});
+  if (NW.live.length > 400) NW.live.splice(0, NW.live.length - 400);
+}
+function nwPoints() {
+  const cut = NW.range ? nowMs() - NW.range * 1000 : -Infinity;
+  const pts = NW.pts.filter(p => p.t >= cut);
+  const lastT = pts.length ? pts[pts.length - 1].t : 0;
+  for (const p of NW.live) if (p.t > lastT) pts.push(p);
+  return pts;
+}
+function renderNWChart() {
+  const pts = nwPoints(), last = pts[pts.length - 1], first = pts[0];
+  const flows = first && last ? FLOWS.list.filter(f => f.t > first.t && f.t <= last.t + 60000) : [];
+  const moved = flows.reduce((a, f) => a + f.cash, 0);
+  const d = first && last ? last.v - first.v : 0, trade = d - moved;
+  const key = NW.range + '|' + pts.length + '|' + (first ? first.t + ':' + first.v : '') + '|' + (last ? last.t + ':' + last.v : '') + '|' + A.offline + '|' + FLOWS.ver;
+  if (key !== NW.key) {
+    NW.key = key;
+    const ax = pts.length ? makeAxis(pts.map(p => p.t), pts[0].t, pts[pts.length - 1].t, NW.step) : null;
+    NWP.set({pts, ax, step: NW.step, flows, up: trade >= 0, msg: !A.everOk ? 'Waiting for the bot…' : NW.api === false && !pts.length ? 'This agent version keeps no net-worth history.' : 'No net-worth history in this range yet. The agent records it every 10 seconds.'});
+  }
+  const row = NW_RANGES.find(r => r[0] === NW.range);
+  if (first && last && last.t - first.t > 30000) {
+    let pct = first.v > 0 ? d / first.v * 100 : null;
+    if (pct != null && Math.abs(pct) >= 1000) pct = null;                // "+178,391%" from a tiny start says nothing
+    patch($('nwChg'), [fmtM(d), pct != null ? fmtPct(pct) : '', NW.range, fmtM(moved)].join('|'), () => [
+      `Net worth ${fmtM(d)}${pct != null ? ' (' + fmtPct(pct) + ')' : ''} in ${NW.range ? row[2] : 'the history shown'}`,
+      Math.abs(moved) >= 0.005 ? h('span', {class: 'mut', text: moved < 0 ? `, after spending ${fmtM(-moved, false)} in the game` : `, with ${fmtM(moved, false)} paid by the game`}) : '']);
+    setCls($('nwChg'), 'chg ' + dirOf(trade, 0.005));
+  } else { patch($('nwChg'), '', () => []); }
+}
+function nwValueAt(pts, t) { let best = null, bd = Infinity; for (const p of pts) { const d = Math.abs(p.t - t); if (d < bd) { bd = d; best = p; } } return best; }
+function paintNW(g, W, H, m, plot) {
+  if (!m) return message(g, W, H, 'Loading…');
+  if (!m.pts.length) return message(g, W, H, m.msg);
+  const P = px(plot.dpr), pts = m.pts, ax = m.ax, last = pts[pts.length - 1].v, first = pts[0].v;
+  const vals = pts.map(p => p.v), srt = vals.slice().sort((a, b) => a - b);
+  let lo = srt.length >= 30 ? quant(srt, 0.01) : srt[0], hi = srt.length >= 30 ? quant(srt, 0.99) : srt[srt.length - 1];
+  lo = Math.min(lo, last); hi = Math.max(hi, last);
+  const base = Math.max(hi - lo, Math.abs(hi) * 0.002, 1e-6);
+  if (srt[srt.length - 1] - lo <= base * 2.5) hi = Math.max(hi, srt[srt.length - 1]);
+  if (hi - srt[0] <= base * 2.5) lo = Math.min(lo, srt[0]);
+  if (!(hi > lo)) { const d = Math.abs(hi) * 0.01 || 1; lo -= d; hi += d; }
+  const pad = (hi - lo) * 0.1, ylo = lo - pad, yhi = hi + pad;
+  const top = 12, bottom = H - 28, left = 2;
+  const tk = linTicks(ylo, yhi, Math.max(2, Math.floor((bottom - top) / 56)));
+  const fmtY = moneyAxis(tk.step, Math.max(Math.abs(ylo), Math.abs(yhi)));
+  g.font = F_AX;
+  let aw = 0; for (const v of tk.vals) aw = Math.max(aw, g.measureText(fmtY(v)).width);
+  g.font = F_TAG; aw = Math.max(aw, g.measureText(fmtM(last, false)).width + 6);
+  const right = W - clamp(Math.ceil(aw + 18), 56, 110);
+  if (right - left < 60 || bottom - top < 40) return null;
+  const Y = v => bottom - (v - ylo) / (yhi - ylo) * (bottom - top), M = xMap(ax, left, right), X = M.X;
+  const iY = y => ylo + (bottom - y) / (bottom - top) * (yhi - ylo);
+  // grid
+  g.lineWidth = P.hair; g.strokeStyle = TH.grid; g.beginPath();
+  for (const v of tk.vals) { const y = Y(v); if (y < top - 0.5 || y > bottom + 0.5) continue; const yy = P.crisp(y); g.moveTo(left, yy); g.lineTo(right, yy); }
+  g.stroke();
+  const ly = Y(last);
+  g.font = F_AX; g.fillStyle = TH.muted; g.textAlign = 'left'; g.textBaseline = 'middle';
+  for (const v of tk.vals) { const y = Y(v); if (y < top + 4 || y > bottom - 4 || Math.abs(y - ly) < 16) continue; g.fillText(fmtY(v), right + 10, y); }
+  const tt = timeTicks(ax, M, left, right, W < 520 ? 86 : 116);
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const t of tt) g.fillText(t.label, t.x, bottom + 9);
+  g.textAlign = 'left';
+  for (let i = 1; i < ax.segs.length; i++) {
+    const x = Math.round(M.X(ax.segs[i][0]) - ax.gapU / 2 * M.k) + 0.5;
+    g.setLineDash([2, 3]); g.strokeStyle = TH['line-2']; g.lineWidth = 1; g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.stroke(); g.setLineDash([]);
+  }
+  // line and area, broken where the history has a hole; green when the range ends up, red when it ends down
+  const runs = [], maxGap = Math.max(m.step * 3, 60000);
+  let run = null;
+  for (let i = 0; i < pts.length; i++) { if (!run || pts[i].t - pts[i - 1].t > maxGap) runs.push(run = []); run.push(pts[i]); }
+  const col = (m.up != null ? m.up : last >= first) ? TH.up : TH.dn;     // cash spent in the game doesn't turn the line red
+  // cash that moved outside trades (upgrades bought, rewards): a quiet marker, so a purchase doesn't read as a loss
+  g.font = F_FLAG; g.textBaseline = 'top';
+  let flagR = -1e9;
+  for (const f of m.flows || []) {
+    const x = Math.round(X(f.t)) + 0.5;
+    if (x < left || x > right) continue;
+    g.strokeStyle = rgba(TH['text-2'], 0.45); g.lineWidth = 1; g.setLineDash([2, 3]);
+    g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.stroke(); g.setLineDash([]);
+    const txt = (f.cash < 0 ? 'Spent ' : 'Paid ') + fmtM(Math.abs(f.cash), false), w = g.measureText(txt).width;
+    const tx = x + 4 + w > right ? x - 4 - w : x + 4;
+    if (tx > flagR + 6) { g.fillStyle = TH['text-2']; g.textAlign = 'left'; g.fillText(txt, tx, top + 1); flagR = tx + w; }
+  }
+  g.save(); g.beginPath(); g.rect(0, top - 6, right + 3, bottom - top + 12); g.clip();
+  const grad = g.createLinearGradient(0, top, 0, bottom);
+  grad.addColorStop(0, rgba(col, 0.16)); grad.addColorStop(1, rgba(col, 0));
+  for (const r of runs) {
+    if (r.length < 2) continue;
+    g.beginPath(); g.moveTo(X(r[0].t), bottom);
+    for (const p of r) g.lineTo(X(p.t), Y(p.v));
+    g.lineTo(X(r[r.length - 1].t), bottom); g.closePath(); g.fillStyle = grad; g.fill();
+  }
+  g.strokeStyle = col; g.lineWidth = 2.2; g.lineJoin = 'round'; g.lineCap = 'round';
+  for (const r of runs) {
+    g.beginPath(); r.forEach((p, i) => i ? g.lineTo(X(p.t), Y(p.v)) : g.moveTo(X(p.t), Y(p.v))); g.stroke();
+    if (r.length === 1) { g.beginPath(); g.arc(X(r[0].t), Y(r[0].v), 2.2, 0, 6.2832); g.fillStyle = col; g.fill(); }
+  }
+  const lx = X(pts[pts.length - 1].t);
+  g.setLineDash([3, 4]); g.strokeStyle = rgba(col, 0.5); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(lx, Math.round(ly) + 0.5); g.lineTo(right, Math.round(ly) + 0.5); g.stroke(); g.setLineDash([]);
+  g.beginPath(); g.arc(lx, ly, 4.5, 0, 6.2832); g.fillStyle = TH.bg; g.fill();
+  g.beginPath(); g.arc(lx, ly, 3.2, 0, 6.2832); g.fillStyle = col; g.fill();
+  g.restore();
+  const tw = W - right - 4;
+  tag(g, right + 3, clamp(ly, top + 9, bottom - 9), tw, fmtM(last, false), col, TH.ink);
+  plot.stops = pts.filter((p, i) => i % Math.max(1, Math.round(pts.length / 80)) === 0 || i === pts.length - 1).map(p => ({x: X(p.t), y: Y(p.v)}));
+  const hv = plot.hover;
+  if (!hv || hv.x < left || hv.x > right + 2 || hv.y < top - 8 || hv.y > bottom + 8) return null;
+  const best = nwValueAt(pts, M.iX(clamp(hv.x, left, right)));
+  if (!best) return null;
+  const x = X(best.t), y = Y(best.v);
+  g.strokeStyle = rgba(TH['text-2'], 0.45); g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath();
+  g.moveTo(Math.round(x) + 0.5, top); g.lineTo(Math.round(x) + 0.5, bottom);
+  if (!hv.kbd) { g.moveTo(left, Math.round(hv.y) + 0.5); g.lineTo(right, Math.round(hv.y) + 0.5); }
+  g.stroke(); g.setLineDash([]);
+  g.beginPath(); g.arc(x, clamp(y, top, bottom), 5, 0, 6.2832); g.fillStyle = TH.bg; g.fill();
+  g.beginPath(); g.arc(x, clamp(y, top, bottom), 3.5, 0, 6.2832); g.fillStyle = col; g.fill();
+  if (!hv.kbd) tag(g, right + 3, clamp(hv.y, top + 9, bottom - 9), tw, fmtM(iY(hv.y), false), TH.cross, TH.text);
+  const items = [{cls: 't3', text: fmtStamp(best.t)}, {cls: 'big', text: fmtWhole(best.v)}];
+  if (best.c != null) { const inPos = best.v - best.c; items.push({cls: 't2', text: Math.abs(inPos) < 0.5 ? 'All cash, nothing held' : `Cash ${fmtM(best.c, false)}, in positions ${fmtM(inPos, false)}`}); }
+  if (best !== pts[0] && pts[0].v > 0) { const d = best.v - pts[0].v; items.push({cls: 't3 ' + dirOf(d, 0.005), text: `${fmtM(d)} (${fmtPct(d / pts[0].v * 100)}) since ${fmtStamp(pts[0].t, false)}`}); }
+  for (const f of m.flows || []) if (Math.abs(f.t - best.t) <= Math.max(m.step * 1.5, 15000)) items.push({cls: 't2', text: `${flowWord(f)} at ${fmtTime(f.t)}, outside trades`});
+  return {items, x, y: clamp(y, top, bottom)};
+}
+const NWP = new Plot($('nwPlot'), paintNW, 'Net worth over time. Arrow keys step along the line.');
+
+// ================================================================ top bar, banner, hero
+function setArm(on, S) {
+  const a = $('arm');
+  setAttr(a, 'aria-checked', String(on));
+  setText($('armState'), on ? 'Bot on' : 'Bot off');
+  const rk = (S && S.risk) || {};
+  setText($('armSub'), on ? (rk.tripped ? 'breaker: no new entries' : 'trading') : rk.tripped ? 'stopped by the breaker' : 'watching only');
+}
+function renderFeed(S) {
+  const el = $('feed');
+  let cls = 'feed ok', t = 'Live', age = '';
+  if (A.offline) { cls = 'feed bad'; t = A.everOk ? 'Offline' : 'Can’t reach the bot'; }
+  else if (!S) { cls = 'feed'; t = 'Connecting…'; }
+  else if (!S.fresh) { cls = 'feed warn'; t = S.exportAgeSec != null ? 'Game data ' + fmtDur(num(S.exportAgeSec)) + ' old' : 'No game data'; }
+  else { const a = num(S.exportAgeSec); age = a != null ? (a < 10 ? a.toFixed(1) : Math.round(a)) + ' s' : ''; }
+  setCls(el, cls); setText(el.querySelector('.t'), t); setText(el.querySelector('.age'), age);
+  setAttr(el, 'title', S && S.exportAgeSec != null ? `The game’s data is ${num(S.exportAgeSec).toFixed(1)} s old${S.gameVersion ? '. Game ' + S.gameVersion : ''}` : null);
+}
+function renderBanner(S) {
+  const b = $('banner');
+  let kind = '', g = '', t = '';
+  if (A.offline) { kind = 'bad'; g = '✕'; t = A.everOk ? 'The bot stopped answering. It may be restarting; this page reconnects by itself and keeps the last numbers.' : 'Can’t reach the bot. Start it with start.bat (or run_hidden.vbs); this page connects by itself.'; }
+  else if (S && S.error) { kind = 'bad'; g = '✕'; t = 'Agent error: ' + S.error + (num(S.errorCount) > 1 ? ` (${S.errorCount} errors since it started)` : ''); }
+  else if (S && S.risk && S.risk.tripped && !(S.cfg && S.cfg.armed)) { kind = 'warn'; g = '!'; t = 'The circuit breaker turned the bot off' + (S.risk.trippedAt ? ' at ' + fmtTime(S.risk.trippedAt) : '') + '. Open positions were left as they are. Turn the bot on again when you’re ready.'; }
+  else if (S && S.risk && S.risk.tripped) { kind = 'warn'; g = '!'; t = 'The circuit breaker tripped: no new entries' + (num(S.risk.resumeAt) ? ' until ' + fmtHM(S.risk.resumeAt) : '') + '. Open positions are still managed.'; }
+  else if (S && num(S.diskFreeMB) != null && num(S.diskFreeMB) < 300) { kind = 'warn'; g = '!'; t = `Only ${Math.round(num(S.diskFreeMB))} MB free on the drive with the bot’s data${S.dataDir ? ' (' + S.dataDir + ')' : ''}. Price history may stop being saved; trading goes on.`; }
+  else if (S && !S.fresh && S.restarting) { kind = 'warn'; g = '!'; t = 'Restarting the game. Prices and trading resume once it’s back online.'; }
+  else if (S && !S.fresh && S.game === 'not running') { kind = 'warn'; g = '!'; t = 'The game isn’t running. Launch it (All charts, menu) to get live prices.'; }
+  else if (S && !S.fresh && S.modsFolder === false) { kind = 'warn'; g = '!'; t = 'Turn on mod support once: in Screen Stocks open Settings and enable Mod support.'; }
+  else if (S && !S.fresh) { kind = 'warn'; g = '!'; t = 'Waiting for live data. The game only sends it while it’s online with the market loaded.'; }
+  show(b, !!kind);
+  if (kind) { setCls(b, 'banner ' + kind); setText(b.querySelector('.g'), g); setText(b.querySelector('.t'), t); }
+}
+function realizedTotal(S) {
+  const R = (S && S.realized) || {};
+  if (R.total && typeof R.total === 'object') return R.total;
+  const t = {n: 0, win: 0, money: 0};
+  for (const k in R) if (k !== 'byStock' && R[k] && typeof R[k] === 'object') for (const f of ['n', 'win', 'money']) t[f] += num(R[k][f]) || 0;
+  return t;
+}
+/** Cash that moved outside trades since the agent started (upgrades bought, rewards claimed). Dividends are left in:
+ *  they are what parking earns. null when the agent doesn't report it (builds before `external`). */
+function outsideFlows(S) {
+  const ex = S && S.external;
+  if (!ex || typeof ex !== 'object' || num(ex.total) == null) return null;
+  return num(ex.total) - (num(S.dividends && S.dividends.received) || 0);
+}
+function renderHero(S) {
+  const p = S.player || {}, el = $('nw');
+  setText(el, fmtWhole(p.netWorth));
+  setCls(el, 'nw n' + (el.textContent.length > 13 ? ' long' : ''));
+  const raw = num(S.session && S.session.pnl), start = num(S.session && S.session.startNw), since = num(S.session && S.session.since);
+  const out = outsideFlows(S), pnl = raw == null ? null : out == null ? raw : raw - out;
+  const sPct = start > 0 && pnl != null ? pnl / start * 100 : null;
+  setText($('sess'), pnl == null ? '—' : fmtM(pnl) + (sPct != null && Math.abs(pnl) >= 0.005 && Math.abs(sPct) < 1000 ? '  ' + fmtPct(sPct) : ''));
+  setCls($('sess'), 'n ' + dirOf(pnl, 0.004));
+  const what = out == null ? 'net worth change this session' : 'profit this session';
+  setText($('sessSub'), since ? `${what}, since ${fmtHM(since)}` : what);
+  setAttr($('sess').parentNode, 'title', out == null
+    ? 'Net worth now minus net worth when the agent started. Anything bought in the game, like upgrades, lowers it too.'
+    : 'Net worth change since the agent started, without cash that moved outside trades (upgrades bought, rewards claimed). Dividends count as profit.');
+  const note = $('heroNote'), big = out != null && Math.abs(out) >= Math.max(1, Math.abs(num(p.netWorth) || 0) * 0.001);
+  show(note, out == null || big);
+  if (out == null) patch(note, 'old', () => 'Upgrades bought in the game lower net worth too. They aren’t trading losses: the bot’s own result is the realized number.');
+  else if (big) patch(note, 'f' + fmtM(out), () => out < 0
+    ? ['Not counting ', h('span', {class: 'n', text: fmtM(-out, false)}), ' spent in the game this session, like upgrades. Purchases aren’t trading losses.']
+    : ['Not counting ', h('span', {class: 'n', text: fmtM(out, false)}), ' the game paid outside trades this session, like level rewards.']);
+  const T = realizedTotal(S), n = num(T.n) || 0, money = num(T.money);
+  setText($('real'), money == null ? '—' : fmtM(money));
+  setCls($('real'), 'n ' + dirOf(money, 0.004));
+  setText($('realSub'), n ? `realized by the bot, ${n} trade${n === 1 ? '' : 's'}, ${Math.round((num(T.win) || 0) / n * 100)}% won` : 'realized by the bot');
+  if (!A.armBusy) setArm(!!(S.cfg && S.cfg.armed), S);
+}
+
+// ================================================================ what the bot is doing
+const evLive = (e, nowS) => !FINAL.includes(e.phase) && num(e.at) / 1000 > nowS - 900;
+const isPump = e => /pump|up|rise/i.test(String(e.dir || ''));
+function brainCounts(S) {
+  const m = /(\d+)\s+validated strateg\w*\s+on\s+(\d+)\s+stock/i.exec(String((S.brain && S.brain.info) || ''));
+  return m ? {strats: +m[1], stocks: +m[2]} : null;
+}
+function posLine(st, S) {
+  const b = st.bot, lp = livePos(st), long = b.side !== 'short', sid = st.id;
+  if (b.state === 'opening') return {k: 'bot', kids: [long ? 'Buying ' : 'Shorting ', h('b', {text: sid}), ` now with ${num(b.pct) ? Math.round(num(b.pct)) + '% of cash' : 'cash'} (${KIND_WORD[b.kind] || 'trade'}).`]};
+  if (b.kind === 'park' && long) {
+    const val = lp ? lp.shares * lp.price : null, perMin = val != null && num(st.div) != null ? val * num(st.div) : null;
+    return {k: 'bot', kids: ['Parked ', h('span', {class: 'n', text: fmtM(val, false)}), ' in ', h('b', {text: sid}), ' for dividends', perMin != null ? [', about ', h('span', {class: 'n', text: fmtM(perMin, false)}), ' a minute.'] : '.',
+      lp ? h('small', {text: `Price ${lp.money >= 0 ? 'gain' : 'loss'} so far ${fmtM(lp.money)} (${fmtPct(lp.pct)}). ${exitWords(st, b, S)}`}) : '']};
+  }
+  if (b.state === 'exiting') return {k: 'bot', kids: [long ? 'Selling ' : 'Covering ', h('b', {text: sid}), ' now', lp ? [', at about ', h('span', {class: 'n ' + dirOf(lp.money, 0.005), text: `${fmtM(lp.money)} (${fmtPct(lp.pct)})`})] : '', '.']};
+  const t0 = num(b.entryT);
+  return {k: 'bot', kids: ['Holding ', h('b', {text: sid}), ` ${long ? 'long' : 'short'}${t0 ? ' since ' + fmtHM(t0) : ''}`, lp ? [': ', h('span', {class: 'n ' + dirOf(lp.money, 0.005), text: `${fmtM(lp.money)} (${fmtPct(lp.pct)})`})] : '', '.',
+    h('small', {text: exitWords(st, b, S) || cap1(KIND_WORD[b.kind] || 'trade') + '.'})]};
+}
+function eventLine(e, S) {
+  const rem = num(e.inSec) != null ? num(e.inSec) - elapsed() : (num(e.at) - nowMs()) / 1000;
+  return {k: 'bot', kids: [isPump(e) ? 'Pump news on ' : 'Crash news on ', h('b', {text: e.stock}), `: target ${fmtPx(e.target)} `, rem > 0 ? `in ${fmtClock(rem)}` : 'now', '.',
+    e.note ? h('small', {text: 'Bot: ' + e.note + '.'}) : '']};
+}
+function lastTradeLine() {
+  const trips = allTrips().filter(tr => tr.closed && tr.exitT != null);
+  if (!trips.length) return null;
+  let tr = trips[0];
+  for (const x of trips) if (x.exitT > tr.exitT) tr = x;
+  const w = tripWords(tr);
+  return {k: w.cls === 'dn' ? 'dn' : w.cls === 'up' ? 'up' : '', kids: [`Last trade ${fmtAgo(tr.exitT, nowMs())}: ${w.pre.toLowerCase()} `, h('b', {text: tr.stock}), h('span', {class: 'n', text: w.mid}),
+    w.res ? [', ', h('span', {class: 'n ' + w.cls, text: w.res + (w.pct ? ' (' + w.pct + ')' : '')})] : '', '.']};
+}
+/** The brain's last entry decision (brain.lastEntry, from newer agents), in plain words; null when missing or old. */
+function nextLine(S) {
+  const le = S.brain && S.brain.lastEntry;
+  if (!le || typeof le !== 'object') return null;
+  let t = num(le.now);
+  if (t != null && t < 1e11) t *= 1000;
+  if (t != null && nowMs() - t > 60000) return null;
+  const SLOT = {long: 'buy', park: 'park in', short: 'short'}, pick = le.pick && typeof le.pick === 'object' ? le.pick : null;
+  if (pick && pick.stock) return {k: 'bot', kids: [`Next: ${SLOT[pick.side] || pick.side} `, h('b', {text: pick.stock}), num(pick.money) > 0 ? [', worth about ', h('span', {class: 'n up', text: fmtM(num(pick.money))}), ' by its tests.'] : '.']};
+  const sides = le.sides && typeof le.sides === 'object' ? le.sides : {}, out = [];
+  for (const slot of ['long', 'short']) {
+    const m = /^wait: (\S+) (long|short|park) worth ([\d,.]+)/.exec(String((sides[slot] || {}).why || ''));
+    const OF = {long: 'buy of', park: 'park in', short: 'short on'};
+    if (m) out.push([out.length ? ' It also skips a ' : 'Skipping a ', `${OF[m[2]] || m[2]} `, h('b', {text: m[1]}), ` (worth about ${fmtM(parseFloat(m[3].replace(/,/g, '')), false)}): a better signal is likely before the ${m[2] === 'short' ? 'short' : 'buy'} cooldown ends.`]);
+  }
+  return out.length ? {k: '', kids: out} : null;
+}
+function doingLines(S) {
+  const out = [], cfg = S.cfg || {}, armed = !!cfg.armed, nowS = nowMs() / 1000;
+  if (A.offline) return [{k: 'bad', kids: ['Can’t reach the bot right now. This page reconnects by itself.']}];
+  if (S.error) out.push({k: 'bad', kids: ['Agent error: ' + S.error]});
+  if (!S.fresh) out.push({k: 'warn', kids: [S.game === 'not running' ? 'The game isn’t running, so there are no live prices and no trades.' : 'Waiting for live data from the game.']});
+  if (!armed) out.push({k: '', kids: [S.risk && S.risk.tripped ? 'The circuit breaker turned the bot off. It watches prices but won’t trade.' : 'The bot is off. It watches prices but won’t trade. Turn it on with the switch at the top.']});
+  else if (S.risk && S.risk.tripped) out.push({k: 'warn', kids: ['The circuit breaker blocks new entries. Open positions are still managed.']});
+  const held = (S.stocks || []).filter(s => s && s.bot);
+  for (const st of held) out.push(posLine(st, S));
+  for (const e of (S.events || []).filter(e => evLive(e, nowS)).sort((a, b) => num(a.at) - num(b.at))) out.push(eventLine(e, S));
+  if (armed && S.fresh && !(S.risk && S.risk.tripped) && held.length < 2) {
+    const bc = brainCounts(S), running = S.brain && S.brain.running, nx = nextLine(S);
+    if (nx) out.push(nx);
+    else if (bc) out.push({k: '', kids: [held.length ? 'Also watching ' : 'Watching ', `${bc.stocks} stock${bc.stocks === 1 ? '' : 's'} for entries with ${bc.strats} tested strateg${bc.strats === 1 ? 'y' : 'ies'}${running ? ', and re-testing them now' : ''}.`]});
+    else if (running) out.push({k: '', kids: ['Testing strategies on the recorded prices.']});
+    else if (S.brain && S.brain.info) out.push({k: '', kids: [cap1(String(S.brain.info)) + '.']});
+  }
+  const lt = lastTradeLine();
+  if (lt) out.push(lt);
+  return out.slice(0, 3);
+}
+function renderDoing(S) {
+  const lines = doingLines(S), box = $('doing');
+  syncKeyed(box, lines.map((l, i) => [i, l]), ([i]) => i, () => h('li'), (li, [, l]) => {
+    setCls(li, l.k || '');
+    const tmp = h('span', {class: 'tx'}, l.kids);               // one grid item next to the dot
+    if (li._html !== tmp.innerHTML) { li._html = tmp.innerHTML; li.replaceChildren(tmp); }
+  });
+}
+
+// ================================================================ right now
+const KIND_TAG = {swing: 'swing', event: 'pump/crash', park: 'parked'};
+function renderNow(S) {
+  const list = [];
+  for (const st of S.stocks || []) { if (!st || !st.id) continue; const lp = livePos(st); if (lp || st.bot) list.push({st, lp}); }
+  const box = $('poslist');
+  if (!list.length) {
+    box._keyed = null;
+    const cash = num(S.player && S.player.cash);
+    patch(box, 'none|' + fmtM(cash, false), () => h('div', {class: 'none'}, 'No open positions. ', cash != null ? h('span', {class: 'n', text: fmtM(cash, false)}) : '', cash != null ? ' in cash.' : ''));
+  } else {
+    if (box._k) { box._k = null; box.replaceChildren(); }
+    syncKeyed(box, list, x => x.st.id, x => {
+      const a = h('a', {class: 'pos', href: '#stock/' + x.st.id});
+      a._ = {t1: h('span', {class: 't1'}), pl: h('span', {class: 'pl'}), t2: h('span', {class: 't2'}), pp: h('span', {class: 'pp'})};
+      a.append(a._.t1, a._.pl, a._.t2, a._.pp);
+      return a;
+    }, (a, {st, lp}) => {
+      const b = st.bot, x = a._;
+      const side = lp ? (lp.side === 'S' ? 'short' : 'long') : b ? b.side : '';
+      patch(x.t1, st.id + side + (b ? b.kind + b.state : 'you'), () => [h('b', {text: st.id}), ' ' + side, h('span', {class: 'tag' + (b ? '' : ' you'), text: b ? (b.state === 'opening' ? 'opening' : b.state === 'exiting' ? 'closing' : KIND_TAG[b.kind] || 'bot') : 'yours'})]);
+      if (lp) {
+        setText(x.pl, fmtM(lp.money)); setCls(x.pl, 'pl ' + dirOf(lp.money, 0.005));
+        setText(x.pp, fmtPct(lp.pct)); setCls(x.pp, 'pp ' + dirOf(lp.pct, 0.005));
+        const t0 = lp.t0 ? lp.t0 * 1000 : null;
+        setText(x.t2, `${fmtQty(lp.shares)} shares at ${fmtPx(lp.entry)}, now ${fmtPx(lp.price)}${t0 ? ', ' + fmtDur((nowMs() - t0) / 1000) : ''}`);
+      } else { setText(x.pl, ''); setText(x.pp, ''); setText(x.t2, b ? `Order sent, waiting for the fill (${num(b.pct) ? Math.round(num(b.pct)) + '% of cash' : ''})` : ''); }
+    });
+  }
+  // parked cash and dividends
+  const pk = S.parked && typeof S.parked === 'object' ? S.parked : null, nw = num(S.player && S.player.netWorth);
+  let pval = pk ? num(pk.value) : null, pPct = pk ? num(pk.pctOfNw) : null, pwhere = pk && Array.isArray(pk.positions) ? pk.positions.map(r => r.stock) : null;
+  if (!pk) {
+    pval = 0; pwhere = [];
+    for (const {st, lp} of list) if (st.bot && st.bot.kind === 'park' && lp) { pval += lp.shares * lp.price; pwhere.push(st.id); }
+    pPct = nw > 0 ? pval / nw * 100 : null;
+  }
+  patch($('parked'), [pval, pPct, pwhere].join('|'), () => pval > 0
+    ? [h('span', {class: 'n', text: fmtM(pval, false)}), pPct != null ? ` (${fmtPct(pPct, false, 0)} of net worth)` : '', pwhere && pwhere.length ? ' in ' + pwhere.join(', ') : '']
+    : h('span', {class: 'mut', text: 'None'}));
+  const dv = S.dividends && typeof S.dividends === 'object' ? S.dividends : null;
+  const perMin = dv && num(dv.perMinEst) != null ? num(dv.perMinEst) : num(S.divPerMin);
+  patch($('divs'), [perMin, dv && dv.received, dv && dv.payouts].join('|'), () => [
+    h('span', {class: 'n ' + (perMin > 0 ? 'up' : perMin < 0 ? 'dn' : ''), text: perMin == null ? '—' : Math.abs(perMin) < 0.005 ? '0' : fmtM(perMin, perMin < 0)}), ' a minute',
+    dv && num(dv.received) ? h('span', {class: 'mut'}, ', ', h('span', {class: 'n', text: fmtM(num(dv.received), false)}), ` received${num(dv.payouts) ? ` in ${dv.payouts} payout${num(dv.payouts) === 1 ? '' : 's'}` : ''}`) : '']);
+  const pend = num(S.pending) || 0;
+  patch($('pend'), 'p' + pend, () => pend ? [h('b', {text: `${pend} order${pend === 1 ? '' : 's'}`}), ' waiting for the game'] : ['No orders waiting']);
+}
+function tickCooldowns() {
+  const S = A.S, p = S && S.player;
+  for (const [id, inK, totK, lab] of [['cdBuy', 'buyInSec', 'buyCooldown', 'buy'], ['cdShort', 'shortInSec', 'shortCooldown', 'short']]) {
+    const box = $(id), bar = box.querySelector('i'), val = box.querySelector('.v');
+    if (!p || !S.fresh || A.offline) { bar.style.transform = 'scaleX(0)'; setText(val, '—'); setCls(box, 'cd'); continue; }
+    const rem = Math.max(0, (num(p[inK]) || 0) - elapsed()), tot = num(p[totK]) || 0;
+    const frac = rem <= 0 ? 1 : tot > 0 ? clamp(1 - rem / tot, 0, 1) : 0;
+    bar.style.transform = `scaleX(${frac.toFixed(3)})`;
+    setText(val, rem <= 0 ? 'Ready' : fmtClock(rem));
+    setCls(box, rem <= 0 ? 'cd ready' : 'cd');
+    box.title = `One ${lab} order per cooldown${tot ? ` (${Math.round(tot)} s)` : ''}, shared by every stock`;
+  }
+}
+
+// ================================================================ latest trades
+function renderLatest() {
+  const trips = allTrips().filter(tr => tr.closed && tr.exitT != null).sort((a, b) => b.exitT - a.exitT).slice(0, 5);
+  const box = $('latest');
+  if (!trips.length) {
+    box._keyed = null;
+    patch(box, A.everOk ? 'none' : 'wait', () => A.everOk ? h('li', {class: 'ph'}, h('span', {class: 'tm'}), h('span', {class: 'what', text: 'No closed trades yet. The bot’s trades show up here as it makes them.'}), h('span'))
+      : [0, 1, 2, 3, 4].map(() => h('li', {class: 'ph'}, h('span', {class: 'tm', text: '--:--'}), h('span', {class: 'what', text: 'Loading…'}), h('span'))));
+    return;
+  }
+  if (box._k) { box._k = null; box.replaceChildren(); }
+  syncKeyed(box, trips, tr => tr.stock + '|' + tr.side + '|' + (tr.entryT || '') + '|' + (tr.exits[0] ? tr.exits[0].t : ''), () => h('li'), (li, tr) => tripItem(li, tr, true));
+}
+
+// ================================================================ stocks
+function sparkPath(vals, w, hh) {
+  const n = vals.length;
+  if (n < 2) return '';
+  let lo = Infinity, hi = -Infinity;
+  for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const span = hi - lo || Math.abs(hi) * 0.01 || 1;
+  let d = '';
+  for (let i = 0; i < n; i++) d += (i ? 'L' : 'M') + ((i / (n - 1)) * w).toFixed(1) + ' ' + (hh - 1.5 - (vals[i] - lo) / span * (hh - 3)).toFixed(1);
+  return d;
+}
+const LOCK_SVG = '<svg class="lock" viewBox="0 0 10 11" aria-hidden="true"><rect x="1" y="4.5" width="8" height="6" rx="1.2" fill="currentColor"/><path d="M2.8 4.6V3.2a2.2 2.2 0 0 1 4.4 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
+function renderStocks(S) {
+  const all = (S.stocks || []).filter(s => s && s.id);
+  const unl = all.filter(s => s.unlocked !== false);
+  const list = UI.showAll ? all : unl;
+  const btn = $('showAll');
+  show(btn, all.length > unl.length);
+  setText(btn, UI.showAll ? 'Unlocked only' : `Show all ${all.length}`);
+  setAttr(btn, 'aria-pressed', String(UI.showAll));
+  const box = $('slist');
+  if (!list.length) { box._keyed = null; patch(box, 'none', () => h('div', {class: 'empty', text: A.everOk ? 'No stocks yet. They show up when the game sends prices.' : 'Loading…'})); return; }
+  if (box._k) { box._k = null; box.replaceChildren(); }
+  const excluded = new Set((S.cfg && S.cfg.excluded) || []);
+  syncKeyed(box, list, s => s.id, s => {
+    const a = h('a', {class: 'srow', href: '#stock/' + s.id});
+    const path = sv('path');
+    const svg = sv('svg', {class: 's-spark', viewBox: '0 0 96 28', preserveAspectRatio: 'none', 'aria-hidden': 'true'}); svg.append(path);
+    a._ = {name: h('span', {class: 's-name'}), svg, path, px: h('span', {class: 's-px'}), ch: h('span', {class: 's-ch'}), div: h('span', {class: 's-div'}), bot: h('span', {class: 's-bot'})};
+    a.append(a._.name, svg, a._.px, a._.ch, a._.div, a._.bot);
+    return a;
+  }, (a, s) => {
+    const x = a._, locked = s.unlocked === false, lp = livePos(s);
+    setCls(a, 'srow' + (locked ? ' locked' : '') + (lp || s.bot ? ' held' : ''));
+    patch(x.name, s.id + '|' + gameName(s) + '|' + locked, () => {
+      const b = h('b', {text: s.id});
+      if (locked) b.insertAdjacentHTML('beforeend', LOCK_SVG);
+      return [b, gameName(s) ? h('small', {text: 'in game ' + gameName(s)}) : ''];
+    });
+    setText(x.px, fmtPx(s.price));
+    const ch = num(s.ch1h), d = dirOf(ch, 0.05);
+    setText(x.ch, ch == null ? '—' : fmtPct(ch)); setCls(x.ch, 's-ch ' + d);
+    setText(x.div, num(s.div) == null ? '—' : fmtPct(num(s.div) * 100, false, 2) + '/min');
+    const sp = Array.isArray(s.spark) ? s.spark.map(num).filter(v => v != null) : [];
+    const sk = sp.length + '|' + sp[0] + '|' + sp[sp.length - 1] + '|' + Math.min(...sp) + '|' + Math.max(...sp);
+    if (x.svg._k !== sk) {
+      x.svg._k = sk;
+      x.path.setAttribute('d', sparkPath(sp, 96, 28));
+      const sd = sp.length > 1 ? dirOf(sp[sp.length - 1] - sp[0], 1e-9) : 'flat';
+      x.path.setAttribute('stroke', sd === 'up' ? TH.up : sd === 'dn' ? TH.dn : TH.muted);
+    }
+    let botTxt = '', botCls = 's-bot nope', title = '';
+    if (s.bot && !lp) { botTxt = s.bot.state === 'opening' ? (s.bot.side === 'short' ? 'shorting…' : 'buying…') : 'bot'; botCls = 's-bot'; }
+    else if (lp) { botTxt = `${lp.side === 'S' ? 'Short' : 'Long'} ${fmtPct(lp.pct)}`; botCls = 's-bot'; title = `${lp.bot ? 'The bot holds' : 'You hold'} ${fmtQty(lp.shares)} shares${lp.side === 'S' ? ' short' : ''} at ${fmtPx(lp.entry)}: ${fmtM(lp.money)}`; }
+    else if (excluded.has(s.id)) botTxt = 'excluded';
+    else if (s.paused) botTxt = 'paused';
+    else botTxt = '—';
+    patch(x.bot, botTxt + '|' + botCls + '|' + (lp ? lp.bot + dirOf(lp.pct, 0.005) : ''), () => {
+      if (!lp) return h('span', {class: s.bot ? 'who' : '', text: botTxt});
+      return [h('span', {class: lp.bot ? 'who' : 'mut', text: lp.side === 'S' ? 'Short ' : 'Long '}), h('span', {class: dirOf(lp.pct, 0.005), text: fmtPct(lp.pct)})];
+    });
+    setCls(x.bot, botCls);
+    setAttr(a, 'title', title || `${s.id}${gameName(s) ? ' (' + gameName(s) + ' in the game)' : ''}: open its chart`);
+  });
+}
+function placeholderStocks() {
+  const box = $('slist');
+  patch(box, 'wait', () => [0, 1, 2, 3, 4, 5, 6].map(() => h('div', {class: 'srow ph'}, h('span', {class: 's-name'}, h('b', {text: '$—'})), h('span'), h('span', {class: 's-px', text: '—'}), h('span'), h('span'), h('span'))));
+}
+
+// ================================================================ one stock: chart (the wall's chart, one at a time)
+const SV_RANGES = [[300, '5m'], [900, '15m'], [3600, '1H'], [21600, '6H'], [86400, '1D'], [0, 'All']];
+const SV = {id: null, range: LS.get('svRange', 3600), type: LS.get('svType', 'line'), log: false, chart: null, data: null, busy: false, gen: 0, loaded: -1, nextAt: 0, fullAt: 0, err: 0, tradesN: 15};
+if (!SV_RANGES.some(r => r[0] === SV.range)) SV.range = 3600;
+if (!['line', 'candle'].includes(SV.type)) SV.type = 'line';
+const MARK_NAME = {buy: 'BUY', sell: 'SELL', short: 'SHORT', cover: 'COVER'};
+function parseCandles(list) {
+  const pts = [];
+  for (const c of list || []) {
+    const t = num(c.time), cl = num(c.close);
+    if (t == null || cl == null) continue;
+    const o = num(c.open) ?? cl, hi = num(c.high) ?? Math.max(o, cl), lo = num(c.low) ?? Math.min(o, cl);
+    pts.push({t, o, h: Math.max(hi, o, cl), l: Math.min(lo, o, cl), c: cl});
+  }
+  pts.sort((a, b) => a.t - b.t);
+  return pts;
+}
+/** Exit levels the bot works with for its position (mirrors the agent's exit rules), drawn as lines. */
+function exitPlan(st, S) {
+  const b = st && st.bot;
+  if (!b || b.state === 'opening') return [];
+  const e = num(b.fillEntry) || num(b.entry);
+  if (!(e > 0)) return [];
+  const c = (S && S.cfg) || {}, C = (k, d) => num(c[k]) ?? d, out = [];
+  const ev = b.ev != null ? ((S && S.events) || []).find(x => String(x.id) === String(b.ev)) : null;
+  const start = ev && num(ev.start) > 0 ? num(ev.start) : e, tgt = ev ? num(ev.target) : null;
+  const take = (v, label) => { if (v > 0) out.push({v, type: 'take', label}); };
+  const stop = (v, label) => { if (v > 0) out.push({v, type: 'stop', label}); };
+  const s = b.strat || {}, long = b.side !== 'short';
+  if (b.kind === 'swing') {
+    if ((s.kind === 'crash' || s.kind === 'calm') && s.tp != null) take(long ? e * (1 + s.tp) : e * (1 - s.tp), `${long ? 'sell' : 'cover'} at ${long ? '+' : MINUS}${Math.round(s.tp * 100)}%`);
+    const p = C('swingStop', 15); if (p > 0 && p < 100) stop(long ? e * (1 - p / 100) : e * (1 + p / 100), `stop ${long ? MINUS : '+'}${p}%`);
+  } else if (b.kind === 'park') { const p = C('parkStopLoss', 0); if (p > 0) stop(e * (1 - p / 100), `stop ${MINUS}${p}%`); }
+  else if (b.kind === 'event') {
+    if (b.leg === 'pump' && tgt) take(start + C('pumpCapture', 85) / 100 * (tgt - start), `sell at ${C('pumpCapture', 85)}% of the pump`);
+    else if (b.leg === 'fade') take(start * (1 + C('fadeCoverAbove', 20) / 100), 'cover near the start price');
+    else if (b.leg === 'crash' && tgt) take(tgt * (1 + C('crashCoverWithin', 5) / 100), 'cover near the crash target');
+    else if (b.leg === 'rebound' && ev && num(ev.start) > 0) take(e + C('reboundRecover', 90) / 100 * (num(ev.start) - e), `sell at ${C('reboundRecover', 90)}% recovered`);
+  }
+  return out;
+}
+const POS = {ver: -1, by: new Map()};
+function positions() {
+  if (POS.ver === TR.ver) return POS.by;
+  const by = new Map();
+  const all = [...TR.map.values()].filter(t => t.status === 'done' && ACT(t.action) && ACT(t.action) !== 'close').sort((a, b) => a.t - b.t);
+  for (const t of all) {
+    let P = by.get(t.stock);
+    if (!P) by.set(t.stock, P = {marks: [], closed: [], open: {L: null, S: null}});
+    const k = ACT(t.action), side = k === 'buy' || k === 'sell' ? 'L' : 'S', opening = k === 'buy' || k === 'short', bot = isBot(t), ts = t.t / 1000;
+    P.marks.push({t: ts, k, price: fillOf(t), bot, pct: /percent$/.test(String(t.action)) ? num(t.percent) : null, tr: t});
+    let p = P.open[side];
+    if (!p) p = P.open[side] = {side, t0: opening ? ts : null, entry: null, exit: null, opens: [], closes: [], money: 0, known: 0, bot: false};
+    p.bot = p.bot || bot;
+    if (opening) { p.opens.push(t); continue; }
+    p.closes.push(t);
+    const pn = num(t.pnl); if (pn != null) { p.money += pn; p.known++; }
+    if (/max$/.test(String(t.action)) || num(t.percent) >= 100) {
+      p.t1 = ts;
+      const last = p.closes[p.closes.length - 1];
+      p.entry = num(last.fillEntry) ?? wavgF(p.opens);
+      p.exit = wavgF(p.closes);
+      p.pct = p.entry > 0 && p.exit > 0 ? (side === 'L' ? p.exit / p.entry - 1 : 1 - p.exit / p.entry) * 100 : null;
+      if (!p.known) p.money = null;
+      P.closed.push(p); P.open[side] = null;
+    }
+  }
+  for (const P of by.values()) for (const s of ['L', 'S']) { const p = P.open[s]; if (p) p.entry = wavgF(p.opens) ?? num(p.closes.length ? p.closes[0].fillEntry : null); }
+  POS.ver = TR.ver; POS.by = by;
+  return by;
+}
+function wavgF(list) {
+  let s = 0, w = 0;
+  for (const t of list) { const p = fillOf(t), q = num(t.shares); if (p == null) continue; const ww = q > 0 ? q : 1; s += p * ww; w += ww; }
+  return w ? s / w : null;
+}
+function eventsFor(id, d, S) {
+  const m = new Map(), nowS = nowMs() / 1000;
+  for (const e of (d && d.events) || []) { const t = num(e.time); if (t != null) m.set(Math.floor(t), {t, dir: e.dir, target: num(e.target), phase: e.phase}); }
+  for (const e of (S && S.events) || []) if (e.stock === id) { const t = num(e.at) / 1000; if (Number.isFinite(t)) m.set(Math.floor(t), {t, dir: e.dir, target: num(e.target), phase: e.phase}); }
+  return [...m.values()].map(e => Object.assign(e, {live: evLive({phase: e.phase, at: e.t * 1000}, nowS)}));
+}
+function overlaysFor(id, data, S) {
+  const st = stockOf(id), P = positions().get(id) || {marks: [], closed: [], open: {L: null, S: null}};
+  let open = null;
+  const lp = st && livePos(st);
+  if (lp) {
+    const tp = P.open[lp.side];
+    open = Object.assign(lp, {t0: tp && tp.t0 != null ? tp.t0 : lp.t0, opens: tp ? tp.opens : [], closes: tp ? tp.closes : [], plan: exitPlan(st, S)});
+  }
+  let marks = P.marks;
+  if (!marks.length && data && Array.isArray(data.marks) && data.marks.length)
+    marks = data.marks.map(m => ({t: num(m.time), k: {B: 'buy', S: 'sell', H: 'short', C: 'cover'}[m.kind] || 'buy', price: null, bot: m.by === 'bot', pct: null, tr: {why: m.why, t: num(m.time) * 1000, source: m.by}})).filter(m => m.t != null);
+  return {marks, closed: P.closed, open, events: eventsFor(id, data, S)};
+}
+function placeTip(tip, lines, at, W, H) {
+  if (!lines || !lines.length || !at) { if (!tip.hidden) tip.hidden = true; return; }
+  tip.replaceChildren(...lines.map(([c, t]) => h('div', {class: c, text: t})));
+  tip.hidden = false;
+  const w = tip.offsetWidth, hh = tip.offsetHeight;
+  let x = at.x + 14, y = at.y + 14;
+  if (x + w > W - 4) x = at.x - w - 14;
+  if (y + hh > H - 4) y = at.y - hh - 10;
+  tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+}
+function tipLines(hit, id) {
+  const out = [];
+  if (hit.kind === 'mark') {
+    const m = hit.m, t = m.tr || {}, NAME = {buy: 'Buy', sell: 'Sell', short: 'Short', cover: 'Cover'}[m.k] || m.k;
+    const kind = t.kind || t.botKind || inferKind(t.why);
+    out.push(['t1', `${NAME} ${id}${(m.k === 'sell' || m.k === 'cover') && m.pct != null && m.pct < 100 ? ` (${Math.round(m.pct)}%)` : ''}, ${m.bot ? 'bot' + (kind ? ' ' + (KIND_TAG[kind] || kind) : '') : 'not the bot'}`]);
+    const sent = num(t.sentPrice), slip = num(t.slipPct);
+    out.push(['t2', `${fmtStamp(t.t)}, filled at ${fmtPrice(hit.price)}${sent ? ` (sent at ${fmtPrice(sent)}${slip != null ? `, slip ${fmtPct(slip)}` : ''})` : ''}`]);
+    if (num(t.shares) > 0) out.push(['t3', `${fmtQty(t.shares)} shares${num(t.percent) && (m.k === 'buy' || m.k === 'short') ? `, ${Math.round(num(t.percent))}% of cash` : ''}`]);
+    if (num(t.pnl) != null) out.push([dirOf(num(t.pnl), 0.005), `${fmtK(t.pnl)}${num(t.pnlPct) != null ? ` (${fmtPct(t.pnlPct)})` : ''} on this sale`]);
+    if (t.why) out.push(['t3', 'Why: ' + t.why]);
+  } else if (hit.kind === 'band') {
+    const b = hit.b, d = b.money != null ? dirOf(b.money, 0.005) : dirOf(b.pct, 0.005);
+    out.push([d, `${b.side === 'L' ? 'Long' : 'Short'} ${id}: ${b.money != null ? fmtK(b.money) : '—'}${b.pct != null ? ` (${fmtPct(b.pct)})` : ''}`]);
+    out.push(['t2', `In at ${fmtPrice(b.entry)}${b.t0 != null ? ', ' + fmtStamp(b.t0 * 1000) : ''}; out at ${fmtPrice(b.exit)}, ${fmtStamp(b.t1 * 1000)}${b.t0 != null ? ` (${fmtDur(b.t1 - b.t0)})` : ''}`]);
+    if (b.closes.length > 1) out.push(['t3', `Sold in ${b.closes.length} pieces`]);
+    if (b.opens[0] && b.opens[0].why) out.push(['t3', 'Entry: ' + b.opens[0].why]);
+    const lw = b.closes[b.closes.length - 1];
+    if (lw && lw.why) out.push(['t3', 'Exit: ' + lw.why]);
+  } else if (hit.kind === 'open') {
+    const o = hit.op;
+    out.push(['t1', `Holding ${id} ${o.side === 'L' ? 'long' : 'short'}: ${fmtQty(o.shares)} at ${fmtPrice(o.entry)}${o.bot ? ', bot' : ', yours'}`]);
+    out.push([dirOf(o.money, 0.005), `Now ${fmtPrice(o.price)}: ${fmtK(o.money)} (${fmtPct(o.pct)})`]);
+    for (const p of o.plan || []) out.push(['t3', `Plan: ${p.label} (${fmtPrice(p.v)})`]);
+    if (o.opens && o.opens[0] && o.opens[0].why) out.push(['t3', 'Entry: ' + o.opens[0].why]);
+    else if (o.label) out.push(['t3', o.label]);
+  }
+  return out;
+}
+/** The live dashboard's price chart: long holes squeezed, every trade marked, the bot's open position and its exit plan drawn. */
+class PriceChart {
+  constructor(host, opt) {
+    this.host = host; this.opt = opt; this.id = '';
+    this.cv = h('canvas', {role: 'img', 'aria-label': 'Price chart'});
+    this.tip = h('div', {class: 'c-tip', hidden: true});
+    host.append(this.cv, this.tip);
+    this.g = this.cv.getContext('2d');
+    this.pts = []; this.step = 1; this.segs = null; this.msg = 'Loading prices…';
+    this.ov = null; this.hover = null; this.hits = []; this.L = null;
+    this.W = 0; this.H = 0; this.dpr = 1; this.raf = 0;
+    const cv = this.cv;
+    cv.addEventListener('pointermove', e => { const r = cv.getBoundingClientRect(); this.hover = {x: e.clientX - r.left, y: e.clientY - r.top}; this.draw(); });
+    cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); this.hover = {x: e.clientX - r.left, y: e.clientY - r.top}; this.draw(); });
+    cv.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { this.hover = null; this.draw(); } });
+    new ResizeObserver(() => this.resize()).observe(host);
+  }
+  setData(pts, step) { this.pts = pts; this.step = Math.max(1, step || 1); this.segs = null; this.draw(); }
+  mergeTail(fine) {
+    if (!fine.length) return;
+    const st = this.step, P = this.pts, folded = [];
+    for (const f of fine) {
+      const bt = Math.floor(f.t / st) * st, last = folded[folded.length - 1];
+      if (last && last.t === bt) { if (f.h > last.h) last.h = f.h; if (f.l < last.l) last.l = f.l; last.c = f.c; }
+      else folded.push({t: bt, o: f.o, h: f.h, l: f.l, c: f.c});
+    }
+    const t0 = folded[0].t;
+    let i = P.length;
+    while (i > 0 && P[i - 1].t >= t0) i--;
+    const old = P[i];
+    if (old && old.t === t0) { folded[0].o = old.o; folded[0].h = Math.max(folded[0].h, old.h); folded[0].l = Math.min(folded[0].l, old.l); }
+    P.splice(i, P.length - i, ...folded);
+    this.segs = null;
+  }
+  pushLive(t, p, range) {
+    if (!(p > 0) || !(t > 0)) return;
+    const st = this.step, P = this.pts, last = P[P.length - 1], bt = Math.floor(t / st) * st;
+    if (last && t < last.t) return;
+    if (last && bt <= last.t) { last.h = Math.max(last.h, p); last.l = Math.min(last.l, p); last.c = p; return; }
+    P.push({t: bt, o: last ? last.c : p, h: p, l: p, c: p});
+    this.segs = null;
+    if (range > 0) { const cut = t - range - st; let i = 0; while (i < P.length - 2 && P[i + 1].t < cut) i++; if (i > 0) P.splice(0, i); }
+  }
+  _segments() {
+    if (this.segs) return this.segs;
+    const P = this.pts, st = this.step, segs = [];
+    if (P.length) {
+      const span = P[P.length - 1].t - P[0].t + st, gapMin = Math.max(st * 12, span * 0.04, 180);
+      let s0 = P[0].t, prev = P[0].t;
+      for (let i = 1; i < P.length; i++) { const t = P[i].t; if (t - prev > gapMin) { segs.push([s0, prev + st]); s0 = t; } prev = t; }
+      segs.push([s0, prev + st]);
+    }
+    const real = segs.reduce((a, s) => a + s[1] - s[0], 0), gapU = Math.max(st * 3, real * 0.015);
+    let u = 0;
+    for (const s of segs) { s.push(u); u += s[1] - s[0] + gapU; }
+    return (this.segs = {segs, gapU});
+  }
+  U(t) {
+    const {segs, gapU} = this._segments();
+    if (!segs.length) return t;
+    let lo = 0, hi = segs.length - 1;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (segs[m][0] <= t) lo = m; else hi = m - 1; }
+    const s = segs[lo], nx = segs[lo + 1];
+    if (t <= s[1] || !nx) return s[2] + (t - s[0]);
+    return s[2] + (s[1] - s[0]) + (t - s[1]) / (nx[0] - s[1]) * gapU;
+  }
+  T(u) {
+    const {segs, gapU} = this._segments();
+    if (!segs.length) return u;
+    let lo = 0, hi = segs.length - 1;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (segs[m][2] <= u) lo = m; else hi = m - 1; }
+    const s = segs[lo], nx = segs[lo + 1], len = s[1] - s[0];
+    if (u <= s[2] + len || !nx) return s[0] + (u - s[2]);
+    return s[1] + (u - s[2] - len) / gapU * (nx[0] - s[1]);
+  }
+  draw() { if (document.hidden) return; if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this._draw(); }); }
+  resize() {
+    const r = this.host.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const w = Math.floor(r.width), hh = Math.floor(r.height);
+    if (w === this.W && hh === this.H && dpr === this.dpr) return;
+    this.W = w; this.H = hh; this.dpr = dpr;
+    this.cv.width = Math.max(1, Math.round(w * dpr)); this.cv.height = Math.max(1, Math.round(hh * dpr));
+    this._draw();
+  }
+  _tag(x, y, w, text, bg, fg) {
+    const g = this.g;
+    roundRect(g, x, y - 9, w, 18, 4); g.fillStyle = bg; g.fill();
+    g.fillStyle = fg; g.font = F_TAG; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x + w / 2, y + 0.5);
+  }
+  _draw() {
+    const g = this.g, Wd = this.W, Hd = this.H;
+    if (!Wd || !Hd) return;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, Wd, Hd);
+    this.hits = []; this.L = null;
+    const P = this.pts, UP = TH.up, DN = TH.dn, EVC = TH.ev, EVT = TH['ev-t'];
+    if (!P.length) { message(g, Wd, Hd, this.msg || 'Waiting for prices…'); this._tip(null); return; }
+    const big = Wd >= 760 && Hd >= 380, st = this.step, ov = this.ov || {};
+    const axW = big ? 70 : 62, left = 6, right = Wd - axW, top = 14, bottom = Hd - 24;
+    if (right - left < 40 || bottom - top < 30) return;
+    this._segments();
+    const ua = this.U(P[0].t), ub = this.U(P[P.length - 1].t + st), span = Math.max(ub - ua, st * 6);
+    const u0 = ua, u1 = ua + span * 1.035 + st, sx = (right - left) / (u1 - u0), X = u => left + (u - u0) * sx;
+    const cols = [], runs = [], brk = st * 5;
+    let run = null, prevT = null;
+    for (const p of P) {
+      const x = X(this.U(p.t + st / 2)), cx = Math.round(x);
+      if (prevT != null && p.t - prevT > brk) run = null;
+      prevT = p.t;
+      if (!run) { run = []; runs.push(run); }
+      const c = run[run.length - 1];
+      if (c && c.cx === cx) { if (p.h > c.hi) c.hi = p.h; if (p.l < c.lo) c.lo = p.l; c.c = p.c; c.t1 = p.t; }
+      else { const n = {cx, x, hi: p.h, lo: p.l, o: p.o, c: p.c, t0: p.t, t1: p.t}; run.push(n); cols.push(n); }
+    }
+    const last = P[P.length - 1].c, first = cols[0].o;
+    let lo = quant(cols.map(c => c.lo), 0.01), hi = quant(cols.map(c => c.hi), 0.99);
+    lo = Math.min(lo, last); hi = Math.max(hi, last);
+    const base = Math.max(hi - lo, Math.abs(hi) * 2e-3, 1e-9), tA = P[0].t - st, tB = P[P.length - 1].t + st * 3;
+    const extras = [];
+    for (const m of ov.marks || []) if (m.bot && m.price > 0 && m.t >= tA && m.t <= tB) extras.push(m.price);
+    for (const b of ov.closed || []) if (b.bot && b.t1 >= tA && b.entry > 0 && b.exit > 0) extras.push(b.entry, b.exit);
+    if (ov.open) { extras.push(ov.open.entry); for (const p of ov.open.plan || []) extras.push(p.v); }
+    for (const e of ov.events || []) if (e.live && e.target > 0) extras.push(e.target);
+    for (const v of extras) { if (!(v > 0)) continue; const a = Math.min(lo, v), b = Math.max(hi, v); if (b - a <= base * 2.5) { lo = a; hi = b; } }
+    if (!(hi > lo)) { const d = Math.abs(hi) * 0.01 || 1; lo -= d; hi += d; }
+    const lg = this.opt.log && lo > 0;
+    let ylo, yhi;
+    if (lg) { const f = Math.pow(hi / lo, 0.09); ylo = lo / f; yhi = hi * f; } else { const pad = (hi - lo) * 0.09; ylo = lo - pad; yhi = hi + pad; }
+    const fy = v => lg ? Math.log(Math.max(v, 1e-12)) : v, f0 = fy(ylo), f1 = fy(yhi);
+    const Y = v => bottom - (fy(v) - f0) / (f1 - f0) * (bottom - top);
+    const iY = y => { const f = f0 + (bottom - y) / (bottom - top) * (f1 - f0); return lg ? Math.exp(f) : f; };
+    this.L = {left, right, top, bottom, u0, sx, Y};
+    const upDir = last >= first, col = upDir ? UP : DN;
+    const nT = Math.max(2, Math.floor((bottom - top) / (big ? 58 : 46)));
+    const tk = lg ? logTicks(ylo, yhi, nT) : linTicks(ylo, yhi, nT);
+    g.lineWidth = 1; g.strokeStyle = TH.grid; g.beginPath();
+    for (const v of tk.vals) { const y = Math.round(Y(v)) + 0.5; if (y < top || y > bottom) continue; g.moveTo(left, y); g.lineTo(right, y); }
+    const secPerPx = (u1 - u0) / (right - left), I = TIME_STEPS.find(s => s / secPerPx >= (big ? 120 : 92)) || TIME_STEPS[TIME_STEPS.length - 1];
+    const tlab = [];
+    let lastX = -1e9, n = 0;
+    for (const s of this.segs.segs) {
+      for (let t = alignUp(s[0], I); t < s[1] && n < 400; t = nextTick(t, I), n++) {
+        const x = X(this.U(t));
+        if (x < left + 24 || x > right - 24 || x - lastX < (big ? 96 : 76)) continue;
+        lastX = x; tlab.push([x, tickLabel(t, I)]);
+        g.moveTo(Math.round(x) + 0.5, top); g.lineTo(Math.round(x) + 0.5, bottom);
+      }
+    }
+    g.stroke();
+    g.font = F_AX; g.textBaseline = 'middle'; g.fillStyle = TH.muted;
+    g.textAlign = 'left';
+    for (const v of tk.vals) { const y = Y(v); if (y < top + 5 || y > bottom - 5) continue; g.fillText(lg ? fmtPrice(v).replace(/\.0+$|(\.\d*?)0+$/, '$1') : priceAxisLabel(v, tk.step), right + 8, y); }
+    g.textAlign = 'center';
+    for (const [x, s] of tlab) g.fillText(s, x, bottom + 12);
+    const sg = this.segs.segs;
+    g.strokeStyle = TH['line-2']; g.setLineDash([2, 3]);
+    for (let i = 1; i < sg.length; i++) {
+      const x = X(sg[i][2] - this.segs.gapU / 2);
+      g.beginPath(); g.moveTo(Math.round(x) + 0.5, top); g.lineTo(Math.round(x) + 0.5, bottom); g.stroke();
+      g.fillStyle = TH.faint; g.font = F_FLAG; g.fillText('//', x, bottom + 12);
+    }
+    g.setLineDash([]);
+    g.save(); g.beginPath(); g.rect(left, top - 1, right - left, bottom - top + 2); g.clip();
+    if (this.opt.type === 'candle') {
+      const pxPer = (right - left) / Math.max(1, (u1 - u0) / st), group = pxPer >= 4 ? 0 : (big ? 6 : 5);
+      const cand = [];
+      if (!group) for (const r of runs) for (const c of r) cand.push(c);
+      else for (const r of runs) { let cur = null; for (const c of r) { const k = Math.floor((c.x - left) / group); if (cur && cur.k === k) { cur.hi = Math.max(cur.hi, c.hi); cur.lo = Math.min(cur.lo, c.lo); cur.c = c.c; cur.x1 = c.x; } else { cur = {k, x: c.x, x1: c.x, o: c.o, c: c.c, hi: c.hi, lo: c.lo}; cand.push(cur); } } }
+      const bw = Math.max(1, Math.floor((group || pxPer) * 0.68));
+      for (const c of cand) {
+        const x = Math.round(group ? (c.x + c.x1) / 2 : c.x), upc = c.c >= c.o, cc = upc ? UP : DN;
+        g.fillStyle = cc; g.fillRect(x, Math.round(Y(c.hi)), 1, Math.max(1, Math.round(Y(c.lo) - Y(c.hi))));
+        const yo = Y(c.o), yc = Y(c.c);
+        g.fillRect(x - Math.floor(bw / 2), Math.round(Math.min(yo, yc)), bw, Math.max(1, Math.round(Math.abs(yc - yo))));
+      }
+    } else {
+      g.fillStyle = rgba(col, 0.12);
+      for (const r of runs) {
+        if (r.length < 2) continue;
+        g.beginPath(); r.forEach((c, i) => i ? g.lineTo(c.x, Y(c.hi)) : g.moveTo(c.x, Y(c.hi)));
+        for (let i = r.length - 1; i >= 0; i--) g.lineTo(r[i].x, Y(r[i].lo));
+        g.closePath(); g.fill();
+      }
+      const grad = g.createLinearGradient(0, top, 0, bottom);
+      grad.addColorStop(0, rgba(col, 0.18)); grad.addColorStop(1, rgba(col, 0));
+      g.fillStyle = grad;
+      for (const r of runs) {
+        if (r.length < 2) continue;
+        g.beginPath(); g.moveTo(r[0].x, bottom); for (const c of r) g.lineTo(c.x, Y(c.c)); g.lineTo(r[r.length - 1].x, bottom); g.closePath(); g.fill();
+      }
+      g.strokeStyle = col; g.lineWidth = big ? 2 : 1.7; g.lineJoin = 'round'; g.lineCap = 'round';
+      for (const r of runs) { g.beginPath(); r.forEach((c, i) => i ? g.lineTo(c.x, Y(c.c)) : g.moveTo(c.x, Y(c.c))); if (r.length === 1) g.lineTo(r[0].x + 0.6, Y(r[0].c)); g.stroke(); }
+    }
+    g.fillStyle = rgba(TH['text-2'], 0.85);
+    let ct = -99, cb = -99;
+    for (const c of cols) {
+      if (Y(c.hi) < top - 0.5 && c.x - ct > 7) { tri(g, c.x, top + 4, 3, true); ct = c.x; }
+      if (Y(c.lo) > bottom + 0.5 && c.x - cb > 7) { tri(g, c.x, bottom - 4, 3, false); cb = c.x; }
+    }
+    const placed = [];
+    const fits = (x, y, w, hh) => { for (const r of placed) if (x < r[0] + r[2] + 2 && x + w + 2 > r[0] && y < r[1] + r[3] + 1 && y + hh + 1 > r[1]) return false; placed.push([x, y, w, hh]); return true; };
+    const paintQ = [];
+    const label = (x, y, txt, bg) => { g.font = F_MKL; const w = g.measureText(txt).width + 10; const lx = clamp(x - w / 2, left + 1, right - w - 1); if (y < top - 2 || y + 17 > bottom + 2 || !fits(lx, y, w, 17)) return null; paintQ.push([lx, y, w, txt, bg]); return [lx, y, w, 17]; };
+    const lineName = (y, name, color) => {
+      if (y < top) { name += ' ↑'; y = top + 14; } else if (y > bottom) { name += ' ↓'; y = bottom - 1; }
+      g.font = F_FLAG;
+      const w = g.measureText(name).width + 8, yy = y - 14 < top - 1 ? y + 2 : y - 14;
+      for (let k = 0; k < 4; k++) {
+        const x = left + 3 + k * (w + 6);
+        if (x + w > right - 4) break;
+        if (!fits(x, yy, w, 13)) continue;
+        g.fillStyle = rgba(TH.panel, 0.85); g.fillRect(x, yy, w, 13);
+        g.fillStyle = color; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(name, x + 4, yy + 7);
+        return;
+      }
+    };
+    const lc = cols[cols.length - 1], ly = Y(last);
+    const xOf = t => t != null && t >= P[0].t ? X(this.U(t)) : left;
+    const bands = (ov.closed || []).filter(b => b.bot && b.t1 >= tA && (b.t0 == null || b.t0 <= tB) && b.entry > 0 && b.exit > 0);
+    for (const b of bands) {
+      let x0 = xOf(b.t0), x1 = X(this.U(b.t1));
+      if (x1 - x0 < 3) { const m = (x0 + x1) / 2; x0 = m - 1.5; x1 = m + 1.5; }
+      const ya = Y(b.entry), yb = Y(b.exit), y0 = Math.min(ya, yb), y1 = Math.max(ya, yb, y0 + 2);
+      const win = b.money != null ? b.money >= 0 : b.pct >= 0, c = win ? UP : DN;
+      g.fillStyle = rgba(c, 0.15); g.fillRect(x0, y0, x1 - x0, y1 - y0);
+      g.strokeStyle = rgba(c, 0.65); g.lineWidth = 1; g.strokeRect(Math.round(x0) + 0.5, Math.round(y0) + 0.5, Math.max(1, Math.round(x1 - x0)), Math.max(1, Math.round(y1 - y0)));
+      g.setLineDash([4, 3]); g.beginPath(); g.moveTo(x0, ya); g.lineTo(x1, yb); g.stroke(); g.setLineDash([]);
+      b._box = [x0, y0, x1 - x0, y1 - y0, c];
+      this.hits.push({x: x0 - 3, y: y0 - 3, w: x1 - x0 + 6, h: y1 - y0 + 6, pri: 1, kind: 'band', b});
+    }
+    const gtags = [];
+    const op = ov.open;
+    if (op && op.entry > 0) {
+      const ye = Y(op.entry), c = op.money >= 0 ? UP : DN, x0 = xOf(op.t0), x1 = lc.x;
+      if (op.t0 != null && x1 > x0) {
+        const a = Math.min(ye, ly), b = Math.max(ye, ly);
+        g.fillStyle = rgba(c, 0.1); g.fillRect(x0, a, x1 - x0, Math.max(2, b - a));
+        g.strokeStyle = rgba(c, 0.5); g.setLineDash([3, 3]); g.strokeRect(Math.round(x0) + 0.5, Math.round(a) + 0.5, Math.round(x1 - x0), Math.max(1, Math.round(b - a))); g.setLineDash([]);
+        this.hits.push({x: x0, y: a - 3, w: Math.max(6, x1 - x0), h: b - a + 6, pri: 2, kind: 'open', op});
+      }
+      g.strokeStyle = TH.bot; g.lineWidth = 1.4; g.setLineDash([7, 4]);
+      g.beginPath(); g.moveTo(left, Math.round(ye) + 0.5); g.lineTo(right, Math.round(ye) + 0.5); g.stroke(); g.setLineDash([]);
+      gtags.push({y: ye, text: fmtPrice(op.entry), bg: TH.bot, fg: TH.ink, pri: 2});
+      lineName(ye, op.side === 'S' ? 'SHORT ENTRY' : 'ENTRY', TH['bot-t']);
+      for (const p of op.plan || []) {
+        const y = Y(p.v), pc = p.type === 'stop' ? DN : UP;
+        if (y >= top && y <= bottom) { g.strokeStyle = rgba(pc, 0.8); g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(left, Math.round(y) + 0.5); g.lineTo(right, Math.round(y) + 0.5); g.stroke(); g.setLineDash([]); }
+        gtags.push({y, text: fmtPrice(p.v), bg: pc, fg: TH.ink, pri: 1});
+        lineName(y, p.type === 'stop' ? 'STOP' : 'EXIT', p.type === 'stop' ? TH['dn-t'] : TH['up-t']);
+      }
+    }
+    for (const e of ov.events || []) {
+      const pump = isPump(e);
+      if (e.t >= P[0].t && e.t <= P[P.length - 1].t + st) {
+        const x = Math.round(X(this.U(e.t))) + 0.5;
+        g.strokeStyle = rgba(EVC, 0.55); g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.stroke(); g.setLineDash([]);
+        g.font = F_FLAG; g.fillStyle = EVC; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(pump ? 'PUMP' : 'CRASH', x + 3, top + 1);
+        placed.push([x + 2, top, g.measureText(pump ? 'PUMP' : 'CRASH').width + 3, 12]);
+      }
+      if (e.live && e.target > 0) {
+        const y = Y(e.target);
+        if (y >= top && y <= bottom) { g.strokeStyle = rgba(EVC, 0.75); g.setLineDash([5, 4]); g.beginPath(); g.moveTo(left, Math.round(y) + 0.5); g.lineTo(right, Math.round(y) + 0.5); g.stroke(); g.setLineDash([]); }
+        gtags.push({y, text: fmtPrice(e.target), bg: EVC, fg: '#fff', pri: 1});
+        lineName(y, pump ? 'PUMP TARGET' : 'CRASH TARGET', EVT);
+      }
+    }
+    const sz = big ? 6 : 5;
+    const mk = (ov.marks || []).filter(m => m.t >= tA && m.t <= tB).sort((a, b) => b.t - a.t);
+    const nearest = t => { let best = P[P.length - 1]; for (let i = P.length - 1; i >= 0; i--) { if (P[i].t <= t) { best = P[i]; break; } } return best.c; };
+    const marks = mk.map(m => {
+      const pr = m.price > 0 ? m.price : nearest(m.t), x = X(this.U(m.t)), y = Y(pr);
+      const upw = m.k === 'buy' || m.k === 'cover', c = !m.bot ? TH.muted : upw ? UP : DN;
+      const ty = clamp(upw ? y + sz + 3 : y - sz - 3, top + sz, bottom - sz);
+      return {m, pr, x, ty, upw, c};
+    });
+    for (const k of marks) { g.fillStyle = k.c; tri(g, k.x, k.ty, sz, k.upw); placed.push([k.x - sz, k.ty - sz, sz * 2, sz * 2]); }
+    for (const {m, pr, x, ty, upw, c} of marks) {
+      let box = null;
+      if (m.bot) {
+        const part = (m.k === 'sell' || m.k === 'cover') && m.pct != null && m.pct < 100 ? ` ${Math.round(m.pct)}%` : '';
+        const txt = `${MARK_NAME[m.k] || m.k.toUpperCase()}${part} ${fmtPrice(pr)}`;
+        for (let i = 0; i < 3 && !box; i++) {
+          box = label(x, upw ? ty + sz + 2 + i * 20 : ty - sz - 19 - i * 20, txt, c);
+          if (box && i) { g.strokeStyle = rgba(c, 0.7); g.lineWidth = 1; g.beginPath(); g.moveTo(Math.round(x) + 0.5, upw ? ty + sz : ty - sz); g.lineTo(Math.round(x) + 0.5, upw ? box[1] : box[1] + box[3]); g.stroke(); }
+        }
+      }
+      const hx = Math.min(x - sz - 2, box ? box[0] : 1e9), hy = Math.min(ty - sz - 2, box ? box[1] : 1e9);
+      const hx2 = Math.max(x + sz + 2, box ? box[0] + box[2] : -1e9), hy2 = Math.max(ty + sz + 2, box ? box[1] + box[3] : -1e9);
+      this.hits.push({x: hx, y: hy, w: hx2 - hx, h: hy2 - hy, pri: 3, kind: 'mark', m, price: pr});
+    }
+    g.font = F_MKL;
+    for (const b of bands.slice().sort((a, b2) => b2.t1 - a.t1)) {
+      const [x0, y0, w, hh, c] = b._box, txt = b.money != null ? fmtK(b.money) : fmtPct(b.pct), lw = g.measureText(txt).width + 10, cx = x0 + w / 2;
+      const spots = w >= lw + 6 && hh >= 22 ? [[cx, y0 + hh / 2 - 8]] : [];
+      spots.push([cx, y0 - 20], [cx, y0 + hh + 3], [x0 + w + lw / 2 + 4, y0 + hh / 2 - 8], [x0 - lw / 2 - 4, y0 + hh / 2 - 8], [cx, y0 - 40], [cx, y0 + hh + 23]);
+      for (const [x, y] of spots) if (label(x, y, txt, c)) break;
+    }
+    g.setLineDash([3, 3]); g.strokeStyle = rgba(col, 0.6); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(left, Math.round(ly) + 0.5); g.lineTo(right, Math.round(ly) + 0.5); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.beginPath(); g.arc(lc.x, ly, big ? 3.6 : 3, 0, Math.PI * 2); g.fill();
+    g.font = F_MKL; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const [lx, y, w, txt, bg] of paintQ) { roundRect(g, lx, y, w, 17, 4); g.fillStyle = bg; g.fill(); g.fillStyle = TH.ink; g.fillText(txt, lx + w / 2, y + 9); }
+    g.restore();
+    const used = [], tw = Wd - right - 3;
+    const place = y => { y = clamp(y, top + 9, bottom - 9); for (let k = 0; k < 12; k++) { const yy = y + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 19; if (yy < top + 9 || yy > bottom - 9) continue; if (used.every(u => Math.abs(u - yy) >= 19)) { used.push(yy); return yy; } } return null; };
+    const yl = place(ly);
+    if (yl != null) this._tag(right + 2, yl, tw, fmtPrice(last), col, TH.ink);
+    gtags.sort((a, b) => b.pri - a.pri);
+    for (const t of gtags) {
+      const off = t.y < top ? '↑' : t.y > bottom ? '↓' : '', yy = place(t.y);
+      if (yy == null) continue;
+      this._tag(right + 2, yy, tw, off + t.text, t.bg, t.fg);
+    }
+    const hv = this.hover;
+    let hit = null;
+    if (hv) for (const r of this.hits) if (hv.x >= r.x && hv.x <= r.x + r.w && hv.y >= r.y && hv.y <= r.y + r.h && (!hit || r.pri > hit.pri)) hit = r;
+    if (hv && hv.x >= left && hv.x <= right && hv.y >= top && hv.y <= bottom) {
+      const x = Math.round(hv.x) + 0.5, y = Math.round(hv.y) + 0.5;
+      g.strokeStyle = rgba(TH['text-2'], 0.5); g.lineWidth = 1; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.moveTo(left, y); g.lineTo(right, y); g.stroke(); g.setLineDash([]);
+      this._tag(right + 2, clamp(hv.y, top + 9, bottom - 9), tw, fmtPrice(iY(hv.y)), TH.cross, TH.text);
+      const t = this.T(u0 + (hv.x - left) / sx), s = fmtStamp(t * 1000);
+      g.font = F_TAG; const w = g.measureText(s).width + 12, bx = clamp(hv.x - w / 2, left, right - w);
+      this._tag(bx, bottom + 12, w, s, TH.cross, TH.text);
+      let cbest = null;
+      for (const c of cols) if (!cbest || Math.abs(c.x - hv.x) < Math.abs(cbest.x - hv.x)) cbest = c;
+      if (cbest && Math.abs(cbest.x - hv.x) < 30) { g.fillStyle = TH.text; g.beginPath(); g.arc(cbest.x, Y(cbest.c), 3, 0, Math.PI * 2); g.fill(); }
+    }
+    this.cv.style.cursor = hit ? 'pointer' : 'crosshair';
+    this._tip(hit);
+  }
+  _tip(hit) { placeTip(this.tip, hit ? tipLines(hit, this.id) : null, this.hover, this.W, this.H); }
+}
+
+// ================================================================ one stock: page
+const svRefreshMs = () => (SV.range > 0 && SV.range <= 3600 ? 4000 + Math.random() * 1000 : 60000);
+const TAIL_SEC = 120;
+async function fetchStock() {
+  if (SV.busy || !SV.id) return;
+  SV.busy = true;
+  const gen = SV.gen, id = SV.id, now = Date.now();
+  const tail = SV.loaded === gen && SV.chart.pts.length > 0 && SV.range > 300 && SV.range <= 3600 && now - SV.fullAt < 60000;
+  try {
+    const d = await getJSON(`/api/chart?stock=${encodeURIComponent(id)}&range=${tail ? TAIL_SEC : SV.range}`);
+    if (gen !== SV.gen) return;
+    SV.err = 0;
+    if (tail) {
+      const fine = parseCandles(d.candles);
+      if (fine.length) {
+        SV.chart.mergeTail(fine);
+        const cut = fine[0].t;
+        SV.data = Object.assign({}, SV.data, {events: d.events, position: d.position, bot: d.bot,
+          marks: ((SV.data && SV.data.marks) || []).filter(m => num(m.time) < cut).concat(d.marks || [])});
+      }
+    } else {
+      SV.data = d; SV.loaded = gen; SV.fullAt = now;
+      SV.chart.msg = 'No prices recorded in this range yet. The line fills in as prices arrive.';
+      SV.chart.setData(parseCandles(d.candles), num(d.step) || 1);
+    }
+    svLiveOne();
+    $('svChart').classList.remove('stale');
+    SV.chart.ov = overlaysFor(id, SV.data, A.S); SV.chart.draw();
+  } catch (e) {
+    SV.err++;
+    if (!SV.chart.pts.length) { SV.chart.msg = A.offline ? 'Waiting for the bot…' : 'Couldn’t load this chart. Trying again…'; SV.chart.draw(); }
+  } finally {
+    SV.busy = false;
+    SV.nextAt = gen !== SV.gen ? 0 : Date.now() + (SV.err ? Math.min(15000, 1500 * SV.err) : svRefreshMs());
+  }
+}
+const liveT = S => (num(S.now) - (num(S.exportAgeSec) || 0) * 1000) / 1000;
+function svLiveOne() {
+  const S = A.S, s = stockOf(SV.id);
+  if (S && S.fresh && num(S.now) && s && num(s.price) > 0) SV.chart.pushLive(liveT(S), num(s.price), SV.range);
+}
+function setSvRange(r) {
+  if (r === SV.range) return;
+  SV.range = r; LS.set('svRange', r); SV.gen++; SV.nextAt = 0;
+  $('svChart').classList.add('stale');
+  renderSvTabs();
+  if (!SV.busy) fetchStock();
+  loadTrades(r > 0 ? nowMs() - Math.max(r, 7 * 86400) * 1000 : 0);
+}
+function renderSvTabs() {
+  for (const b of $('svTabs').children) setAttr(b, 'aria-pressed', String(Number(b.dataset.r) === SV.range));
+  for (const b of $('svType').children) setAttr(b, 'aria-pressed', String(b.dataset.type === SV.type));
+}
+function openStockView(id) {
+  if (SV.id !== id) {
+    SV.id = id; SV.gen++; SV.loaded = -1; SV.nextAt = 0; SV.data = null; SV.tradesN = 15;
+    SV.chart.id = id; SV.chart.ov = null; SV.chart.msg = 'Loading prices…'; SV.chart.setData([], 1);
+    setAttr(SV.chart.cv, 'aria-label', id + ' price chart');
+  }
+  loadTrades(SV.range > 0 ? nowMs() - Math.max(SV.range, 7 * 86400) * 1000 : 0);
+  if (!SV.busy) fetchStock();
+}
+/** The brain's reason for not trading a side (brain.py walk-forward checks), in plain words. */
+function whyWords(w) {
+  w = String(w || '').trim();
+  let m;
+  if (/history too short/.test(w)) return 'there isn’t enough price history to test it yet';
+  if (/no strategy passes in-sample/.test(w)) return 'no strategy made money on the prices it learned from';
+  if ((m = /only (\d+) out-of-sample trades? \(need (\d+)\)/.exec(w))) return `only ${m[1]} test trade${m[1] === '1' ? '' : 's'} so far, and it needs ${m[2]}`;
+  if ((m = /out-of-sample loss \(([+\-−]?\d+(?:\.\d+)?)%\/trade/.exec(w))) return `it lost money in testing (${fmtPct(parseFloat(m[1].replace('−', '-')))} a trade)`;
+  if (/edge not significant/.test(w)) return 'its test profit is too small to trust';
+  if ((m = /profitable in only (\d+) of (\d+) folds/.exec(w))) return `it made money in only ${m[1]} of ${m[2]} test periods`;
+  if ((m = /needs (\d+) min of history/.exec(w))) return `it needs ${m[1]} minutes of price history first`;
+  return w.replace(/out-of-sample/g, 'test');
+}
+function stratBlock(side, row, rep, S, st) {
+  const word = side === 'long' ? 'Long' : 'Short';
+  const box = h('div', {class: 'side-s' + (row ? '' : ' off')}, h('b', {text: word}));
+  if (!row) {
+    const why = rep && rep.why ? whyWords(rep.why) : '';
+    box.append(h('p', {text: why ? `Not trading ${side}s here: ${why}.` : `No tested strategy for ${side}s on this stock right now.`}));
+    return box;
+  }
+  box.append(h('p', {text: stratWords(row.label, timeExitOn(S))}));
+  const te = row.test || {}, tr = row.train || {}, bits = [];
+  if (num(te.n)) bits.push(['Tested on ', h('span', {class: 'n', text: String(te.n)}), ` trade${te.n === 1 ? '' : 's'} it had not seen: `, h('span', {class: 'n ' + dirOf(num(te.avg), 1e-6), text: fmtPct(num(te.avg) * 100)}), ' a trade, ', h('span', {class: 'n', text: Math.round((num(te.win) || 0) * 100) + '%'}), ' won.']);
+  if (num(tr.n)) bits.push([' Learned on ', h('span', {class: 'n', text: String(tr.n)}), ': ', h('span', {class: 'n', text: fmtPct(num(tr.avg) * 100)}), ' a trade.']);
+  const lv = row.live || {};
+  if (num(row.expected) != null) bits.push([' Expected now ', h('span', {class: 'n ' + dirOf(num(row.expected), 1e-6), text: fmtPct(num(row.expected) * 100)}), ' a trade', num(lv.money) ? [', about ', h('span', {class: 'n up', text: fmtM(num(lv.money))}), num(lv.pct) ? ` on the next entry (${Math.round(num(lv.pct))}% of cash)` : ' on the next entry'] : '', '.']);
+  box.append(h('div', {class: 'bt'}, bits));
+  const vol = s => { const m = /volume binds: ([\d,]+) shares x ([\d.]+) = ([\d,.]+) \((\d+)% of cash\)/.exec(s || '');
+    return m ? `The game’s trading volume caps the next entry at ${fmtQty(parseFloat(m[1].replace(/,/g, '')))} shares (${fmtM(parseFloat(m[3].replace(/,/g, '')), false)}, ${m[4]}% of cash).` : s; };
+  const notes = [lv.note, vol(row.volumeNote)].filter(x => x && typeof x === 'string');
+  if (notes.length) box.append(h('div', {class: 'bt mut', text: notes.join(' ')}));
+  return box;
+}
+function renderStockView(S) {
+  const id = SV.id, st = stockOf(id);
+  setText($('svName'), id || '—');
+  if (!st) {
+    setText($('svAlt'), A.everOk ? 'This stock isn’t in the game’s list.' : 'Loading…');
+    for (const k of ['svPx', 'svCh', 'svDiv', 'svReal']) setText($(k), '—');
+    show($('svHold'), false);
+    return;
+  }
+  document.title = `${id} ${fmtPx(st.price)} · Screen Stocks bot`;
+  const excluded = ((S.cfg && S.cfg.excluded) || []).includes(id);
+  setText($('svAlt'), [gameName(st) ? `${gameName(st)} in the game` : '', st.unlocked === false ? 'locked in the game' : '', excluded ? 'you excluded it from trading' : '', st.paused ? 'swing trades paused after losses' : ''].filter(Boolean).join(', '));
+  setText($('svPx'), fmtPx(st.price));
+  const ch = num(st.ch1h); setText($('svCh'), ch == null ? '—' : fmtPct(ch)); setCls($('svCh'), 'n ' + dirOf(ch, 0.05));
+  setText($('svDiv'), num(st.div) == null ? '—' : fmtPct(num(st.div) * 100, false, 2));
+  const R = (S.realized && S.realized.byStock && S.realized.byStock[id]) || st.realized || null, rn = R ? num(R.n) || 0 : 0;
+  setText($('svReal'), R ? fmtM(num(R.money)) : '—'); setCls($('svReal'), 'n ' + (R ? dirOf(num(R.money), 0.005) : ''));
+  setText($('svRealSub'), rn ? `bot profit here, ${rn} trade${rn === 1 ? '' : 's'}, ${Math.round((num(R.win) || 0) / rn * 100)}% won` : 'bot profit here');
+  // what the bot holds here
+  const b = st.bot, lp = livePos(st), hold = $('svHold');
+  show(hold, !!(b || lp));
+  if (b || lp) {
+    const long = lp ? lp.side === 'L' : b.side !== 'short';
+    patch(hold, [!!b, b && b.state, lp && fmtM(lp.money), lp && fmtPct(lp.pct), lp && lp.shares].join('|'), () => [
+      h('b', {text: b ? (b.state === 'opening' ? (long ? 'The bot is buying' : 'The bot is shorting') : `The bot is ${long ? 'long' : 'short'}`) : `You are ${long ? 'long' : 'short'}`}),
+      lp ? h('span', {class: 'n', text: `${fmtQty(lp.shares)} shares at ${fmtPx(lp.entry)}`}) : '',
+      lp ? h('span', {class: 'pl ' + dirOf(lp.money, 0.005), text: `${fmtM(lp.money)}  ${fmtPct(lp.pct)}`}) : '',
+      b ? h('small', {text: [cap1(KIND_WORD[b.kind] || 'trade') + (num(b.entryT) ? `, opened ${fmtHM(num(b.entryT))}` : '') + '.', exitWords(st, b, S)].filter(Boolean).join(' ')}) : '']);
+  }
+  // how the bot trades it
+  const strat = st.strat || {}, rep = (S.brain && S.brain.report && S.brain.report[id]) || {};
+  const key = JSON.stringify([strat.long && [strat.long.label, strat.long.test, strat.long.train, strat.long.expected, strat.long.live, strat.long.volumeNote], strat.short && [strat.short.label, strat.short.test, strat.short.train, strat.short.expected, strat.short.live, strat.short.volumeNote], rep.long && rep.long.why, rep.short && rep.short.why, excluded, st.unlocked, st.paused, timeExitOn(S), S.cfg && S.cfg.events, S.cfg && S.cfg.dividendPark]);
+  patch($('svStrat'), key, () => {
+    const kids = [];
+    if (st.unlocked === false) kids.push(h('p', {class: 'note', text: 'Locked in the game. The bot can only trade it once you unlock it.'}));
+    if (excluded) kids.push(h('p', {class: 'note', text: 'You excluded this stock in Settings, so the bot never trades it.'}));
+    if (st.paused) kids.push(h('p', {class: 'note', text: 'Swing trades on this stock are paused for a while after losses.'}));
+    kids.push(stratBlock('long', strat.long, rep.long, S, st), stratBlock('short', strat.short, rep.short, S, st));
+    const ev = !!(S.cfg && S.cfg.events), pk = !!(S.cfg && S.cfg.dividendPark);
+    kids.push(h('p', {class: 'note', text: `Besides these, the bot ${ev ? 'trades pump and crash news' : 'ignores pump and crash news (off in Settings)'}${pk ? ', and parks idle cash in calm, high-dividend stocks' : ''}. Backtests re-run every ${num(S.cfg && S.cfg.backtestEveryMin) || 10} minutes on the recorded prices.`}));
+    return kids;
+  });
+  // its trades
+  const trips = allTrips().filter(tr => tr.stock === id).sort((a, b) => ((b.closed ? b.exitT : b.entryT) || 0) - ((a.closed ? a.exitT : a.entryT) || 0));
+  const shown = trips.slice(0, SV.tradesN), box = $('svTrades');
+  if (!shown.length) { box._keyed = null; patch(box, 'none' + TR.busy, () => h('li', {class: 'ph'}, h('span', {class: 'tm'}), h('span', {class: 'what', text: TR.busy ? 'Loading trades…' : 'The bot hasn’t traded this stock in the history loaded.'}), h('span'))); }
+  else {
+    if (box._k) { box._k = null; box.replaceChildren(); }
+    syncKeyed(box, shown, tr => tr.side + '|' + (tr.entryT || '') + '|' + (tr.exits[0] ? tr.exits[0].t : ''), () => h('li'), (li, tr) => tripItem(li, tr, true));
+  }
+  const more = trips.length - shown.length;
+  show($('svMore'), more > 0); if (more > 0) setText($('svMore'), `Show ${Math.min(more, 30)} more`);
+  // chart overlays follow the live position
+  SV.chart.ov = overlaysFor(id, SV.data, S);
+  svLiveOne();
+  SV.chart.draw();
+}
+
+// ================================================================ settings drawer (the old dashboard's controls)
+const CFG = [
+  ['General', 'armOnStart', 'Turn the bot on at startup', 'Turns the bot on when the agent starts and the game feed is live.'],
+  ['General', 'autoLaunchGame', 'Launch the game at startup', 'Starts Screen Stocks through Steam when the agent starts.'],
+  ['General', 'autoHideGame', 'Keep the game window hidden', 'Hides the game window whenever it shows. The game keeps running.'],
+  ['General', 'excluded', 'Never trade these stocks', 'Crossed-out stocks are skipped by every strategy.'],
+  ['Pumps and crashes', 'events', 'Trade pump and crash news', 'Acts on scheduled pump and crash announcements.'],
+  ['Pumps and crashes', 'eventPercent', 'Cash per event trade', 'Share of cash used for each event leg.', '%', 1],
+  ['Pumps and crashes', 'eventFreeCash', 'Sell other bot longs to fund events', 'Closes swing and parked longs to free cash for an event.'],
+  ['Pumps and crashes', 'pumpMinGain', 'Minimum pump gain', 'Skips pumps whose target is closer than this.', '%'],
+  ['Pumps and crashes', 'pumpCapture', 'Sell at this share of the move', 'Sells once the price covers this much of the start-to-target move.', '%'],
+  ['Pumps and crashes', 'pumpTrail', 'Pullback exit', 'After the event time, sells on this drop from the peak.', '%'],
+  ['Pumps and crashes', 'pumpExitAfterSec', 'Sell after the event', 'Sells this long after the event time no matter what.', 's', 1],
+  ['Pumps and crashes', 'pumpFadeShort', 'Short the fade after a pump', 'Opens a short once the spike is sold.'],
+  ['Pumps and crashes', 'fadeCoverAbove', 'Cover the fade near the start', 'Covers when the price is within this of the pre-pump price.', '%'],
+  ['Pumps and crashes', 'fadeMaxSec', 'Longest fade short', 'Covers the fade short after this long.', 's', 1],
+  ['Pumps and crashes', 'crashMinDrop', 'Minimum crash drop', 'Skips crashes whose target is closer than this.', '%'],
+  ['Pumps and crashes', 'crashLeadMin', 'Act before a crash', 'Sells and shorts this long before the crash time.', 'min'],
+  ['Pumps and crashes', 'crashShort', 'Short crashes', 'Opens a short ahead of a crash.'],
+  ['Pumps and crashes', 'crashCoverWithin', 'Cover near the crash target', 'Covers when the price is within this above the target.', '%'],
+  ['Pumps and crashes', 'crashReboundBuy', 'Buy the crash bottom', 'Buys after the crash to ride the rebound.'],
+  ['Pumps and crashes', 'reboundRecover', 'Sell the rebound at', 'Sells after recovering this share of the drop.', '%'],
+  ['Pumps and crashes', 'reboundStop', 'Rebound stop-loss', 'Sells the rebound buy after this loss.', '%'],
+  ['Pumps and crashes', 'reboundMaxHoldMin', 'Longest rebound hold', 'Sells the rebound position after this long.', 'min', 1],
+  ['Pumps and crashes', 'reboundMaxWaitMin', 'Longest wait for the bottom', 'Gives up on the rebound buy after this long.', 'min', 1],
+  ['Pumps and crashes', 'resets', 'Trade the daily resets', 'Buys the daily drop to the base price ($BASE 19:00, $MOVE 23:00, $HARD 15:00 UTC) and sells the spike or recovery, even when the game never shows the news.'],
+  ['Pumps and crashes', 'resetSchedule', 'Daily reset times', 'stock HH:MM (UTC) target, separated by ";".'],
+  ['Pumps and crashes', 'resetShort', 'Short before a reset', 'Shorts shortly before the reset time and covers on the reset tick.'],
+  ['Pumps and crashes', 'resetShortRiskPct', 'Reset short risk', 'Sizes that short so a cover at the price cap would cost at most this share of cash.', '%'],
+  ['Pumps and crashes', 'resetTakeX', 'Sell the reset spike at', 'In the first seconds, sells at this many times the fill (0 = wait for the recovery).', '×'],
+  ['Pumps and crashes', 'resetRecover', 'Sell the reset recovery at', 'After that, sells once this share of the drop has come back.', '%'],
+  ['Pumps and crashes', 'resetHoldMin', 'Longest reset hold', 'Sells the reset buy after this long.', 'min', 1],
+  ['Swing', 'swing', 'Trade validated swing strategies', 'Uses the per-stock strategies the backtests picked.'],
+  ['Swing', 'swingPercent', 'Cash per swing entry', 'Share of cash used for each swing trade.', '%', 1],
+  ['Swing', 'swingMinEdge', 'Minimum backtested edge', 'Only trades strategies averaging at least this per trade in both train and test.', '%'],
+  ['Swing', 'swingCost', 'Assumed cost per side', 'Spread and impact charged per side in backtests.', '%'],
+  ['Swing', 'swingStop', 'Swing stop-loss', 'Closes a swing after this loss, held for 5 seconds.', '%'],
+  ['Swing', 'swingPauseLosses', 'Pause after losses', 'Losses in a row that pause a stock for 15 minutes.', 'losses', 1],
+  ['Swing', 'swingTimeExit', 'Time limit on swings', 'Off: a swing is held until its exit rule fires, however long that takes. On: it also closes once its strategy’s longest tested hold runs out.'],
+  ['Swing', 'backtestEveryMin', 'Re-run backtests every', 'How often the brain re-tests every stock.', 'min', 1],
+  ['Dividend parking', 'dividendPark', 'Park idle cash in dividend stocks', 'Buys a calm, high-dividend stock while nothing else is going on.'],
+  ['Dividend parking', 'parkIdleSec', 'Wait before parking', 'Parks only after this long without a swing entry.', 's', 1],
+  ['Dividend parking', 'parkMinCashPct', 'Minimum idle cash', 'Parks only when cash is at least this share of net worth.', '%'],
+  ['Dividend parking', 'parkPercent', 'Cash to park', 'Share of cash used when parking.', '%', 1],
+  ['Dividend parking', 'parkMaxVol', 'Calmest stocks only', 'Parks only in stocks moving less than this per second.', '%'],
+  ['Dividend parking', 'parkStopLoss', 'Parking stop-loss', 'Sells a parked stock after this loss.', '%'],
+  ['Dividend parking', 'parkFirst', 'Park before small trades', 'The buy slot goes to a dividend park when that pays more than the long on offer.'],
+  ['Dividend parking', 'parkKeepPct', 'Cash kept free', 'The share of net worth a park leaves in cash for instant swing entries.', '%'],
+  ['Risk limits', 'maxDrawdownPct', 'Circuit breaker', 'Turns the bot off when its profit since turning on falls this far below its peak. 0 turns it off.', '%'],
+  ['Risk limits', 'maxPositionPct', 'Largest swing or parked position', 'Never puts more than this share of net worth into one swing or parked position.', '%'],
+  ['Risk limits', 'noisyVolPct', 'Noisy stock threshold', 'A stock counts as noisy when its 1-second moves are bigger than this.', '%'],
+  ['Risk limits', 'noisyCapPct', 'Most parked in a noisy stock', 'Caps parking in a noisy stock at this share of net worth.', '%'],
+  ['Trading costs', 'sizeByImpact', 'Size entries by price impact', 'Shrinks an entry when its own price impact, in and out, would eat the expected edge.'],
+  ['Trading costs', 'exitChunkAbovePct', 'Split big exits above', 'Sells a calm exit in pieces when selling all at once would move the price more than this. 0 never splits.', '%'],
+  ['Trading costs', 'exitChunkMax', 'Most pieces per exit', 'Upper limit on the number of pieces.', 'pieces', 1],
+  ['Trading costs', 'exitChunkSec', 'Time between pieces', 'Waits this long after each piece shows in the position.', 's'],
+  ['Trading costs', 'parkHoldMin', 'Expected parking time', 'How long a parked position is expected to earn dividends; used to size it.', 'min'],
+  ['Companion plugin', 'autoUpgrade', 'Buy upgrades automatically', 'The plugin buys levels by its rules (also on the Account tab of All charts).'],
+  ['Companion plugin', 'autoUpgradeBuyCdPct', 'Buy cooldown upgrade', 'Buys a level when it costs at most this share of cash. 0 turns it off.', '%'],
+  ['Companion plugin', 'autoUpgradeShortCdPct', 'Short cooldown upgrade', 'Buys a level when it costs at most this share of cash. 0 turns it off.', '%'],
+  ['Companion plugin', 'autoClaim', 'Claim level rewards', 'Claims each level reward as soon as it unlocks.'],
+];
+const SET = {built: false, base: {}, fields: new Map(), keysSig: ''};
+function cfgType(v) { return typeof v === 'boolean' ? 'bool' : Array.isArray(v) ? 'list' : typeof v === 'number' ? 'num' : 'text'; }
+function buildSettings(cfg) {
+  const meta = new Map(CFG.map(m => [m[1], m]));
+  const groups = new Map([['General', []], ['Pumps and crashes', []], ['Swing', []], ['Dividend parking', []], ['Risk limits', []], ['Trading costs', []], ['Companion plugin', []], ['Other', []]]);
+  for (const m of CFG) if (m[1] in cfg) groups.get(m[0]).push(m[1]);
+  for (const k of Object.keys(cfg)) if (k !== 'armed' && !meta.has(k)) groups.get('Other').push(k);
+  const box = $('sgroups'); box.replaceChildren(); SET.fields.clear();
+  for (const [gname, keys] of groups) {
+    if (!keys.length) continue;
+    const grp = h('fieldset', {class: 'sgroup'}, h('h3', {text: gname}));
+    for (const k of keys) {
+      const m = meta.get(k) || [gname, k, human(k), ''];
+      const type = cfgType(cfg[k]), id = 'cfg-' + k;
+      let input, ctl;
+      if (type === 'bool') { input = h('input', {type: 'checkbox', class: 'switch', id, role: 'switch', 'aria-label': m[2]}); ctl = h('div', {class: 'sctl'}, input); }
+      else if (type === 'num') { input = h('input', {type: 'number', id, step: m[5] ? '1' : 'any', min: '0', inputmode: 'decimal', 'aria-label': m[2]}); ctl = h('div', {class: 'sctl'}, input, h('span', {class: 'unit', text: m[4] || ''})); }
+      else if (type === 'list') { input = h('div', {class: 'chips', id, role: 'group', 'aria-label': m[2]}); ctl = input; }
+      else { input = h('input', {type: 'text', id, 'aria-label': m[2]}); ctl = h('div', {class: 'sctl'}, input); }
+      const row = h('div', {class: 'srow2' + (type === 'list' ? ' wide' : '')}, h('label', {for: id}, h('span', {class: 'sl', text: m[2]}), m[3] ? h('span', {class: 'sh', text: m[3]}) : ''), ctl);
+      const f = {k, type, input, row, int: !!m[5]};
+      if (type === 'list') f.value = [];
+      SET.fields.set(k, f);
+      if (type === 'bool') input.addEventListener('change', () => settingsDirty());
+      else if (type !== 'list') input.addEventListener('input', () => settingsDirty());
+      grp.append(row);
+    }
+    box.append(grp);
+  }
+  SET.built = true;
+}
+function renderChips(f, ids, value) {
+  const key = ids.join(',') + '|' + value.join(',');
+  if (f.input._k === key) return; f.input._k = key;
+  const all = [...new Set([...ids, ...value])];
+  f.input.replaceChildren(...all.map(id => h('button', {type: 'button', class: 'chip', 'aria-pressed': String(value.includes(id)), title: value.includes(id) ? 'Excluded: click to allow trading' : 'Click to exclude', text: id,
+    onclick: () => { const v = new Set(f.value); if (v.has(id)) v.delete(id); else v.add(id); f.value = [...v].sort(); renderChips(f, ids, f.value); settingsDirty(); }})));
+}
+function fieldValue(f) {
+  if (f.type === 'bool') return f.input.checked;
+  if (f.type === 'list') return f.value.slice().sort();
+  if (f.type === 'num') { const s = f.input.value.trim(); if (s === '') return NaN; const v = Number(s); return f.int ? Math.round(v) : v; }
+  return f.input.value;
+}
+function normBase(f, v) { return f.type === 'list' ? (v || []).slice().sort() : v; }
+function syncSettings(cfg) {
+  const sig = Object.keys(cfg).sort().join(',');
+  if (!SET.built || (sig !== SET.keysSig && !settingsChanged().length && !$('sgroups').contains(document.activeElement))) { buildSettings(cfg); SET.keysSig = sig; }
+  SET.base = cfg;
+  const ids = ((A.S && A.S.stocks) || []).map(s => s.id);
+  for (const f of SET.fields.values()) {
+    const base = normBase(f, cfg[f.k]);
+    const dirty = f.touched && !same(fieldValue(f), base);
+    if (!dirty && document.activeElement !== f.input) {
+      if (f.type === 'bool') f.input.checked = !!base;
+      else if (f.type === 'list') f.value = (base || []).slice();
+      else if (f.type === 'num') { const s = base == null ? '' : String(base); if (f.input.value !== s) f.input.value = s; }
+      else if (f.input.value !== String(base ?? '')) f.input.value = String(base ?? '');
+      f.touched = false;
+    }
+    if (f.type === 'list') renderChips(f, ids, f.value);
+  }
+  settingsDirty(true);
+}
+function settingsChanged() {
+  const out = [];
+  for (const f of SET.fields.values()) {
+    const v = fieldValue(f), base = normBase(f, SET.base[f.k]);
+    if (!same(v, base)) out.push([f, v]);
+  }
+  return out;
+}
+function settingsDirty(fromSync) {
+  if (fromSync !== true) for (const f of SET.fields.values()) f.touched = true;
+  const ch = settingsChanged();
+  let bad = 0;
+  for (const f of SET.fields.values()) {
+    const c = ch.find(x => x[0] === f), invalid = c && f.type === 'num' && !(Number.isFinite(c[1]) && c[1] >= 0);
+    if (invalid) bad++;
+    f.row.classList.toggle('dirty', !!c); f.row.classList.toggle('bad', !!invalid);
+  }
+  const n = ch.length;
+  setText($('sbarText'), n ? `${n} unsaved change${n === 1 ? '' : 's'}` + (bad ? `, ${bad} not a number of 0 or more` : '') : 'All saved. Changes apply on the agent’s next tick.');
+  $('drFoot').classList.toggle('dirty', n > 0);
+  $('sSave').disabled = !n || bad > 0 || A.offline;
+  $('sDiscard').disabled = !n;
+}
+async function saveSettings() {
+  const ch = settingsChanged();
+  if (!ch.length) return;
+  const body = {};
+  for (const [f, v] of ch) { if (f.type === 'num' && !(Number.isFinite(v) && v >= 0)) return; body[f.k] = v; }
+  $('sSave').disabled = true;
+  const r = await api('/api/config', body);
+  if (r.cfg) { if (A.S) A.S.cfg = r.cfg; }
+  if (r.ok) {
+    for (const f of SET.fields.values()) f.touched = false;
+    if (r.cfg) syncSettings(r.cfg);
+    toast(`Saved ${ch.length} setting${ch.length === 1 ? '' : 's'}`, 'ok');
+  } else { toast('Couldn’t save settings: ' + errText(r), 'bad'); settingsDirty(true); }
+}
+function discardSettings() { for (const f of SET.fields.values()) f.touched = false; const el = document.activeElement; if (el && $('sgroups').contains(el)) el.blur(); syncSettings(SET.base); }
+const DR = {open: false};
+function openDrawer(on) {
+  const was = DR.open;
+  DR.open = on;
+  const dr = $('drawer');
+  dr.classList.toggle('open', on); dr.inert = !on; show($('scrim'), on);
+  setAttr($('setBtn'), 'aria-expanded', String(on));
+  if (on) { if (A.S) syncSettings(A.S.cfg || {}); if (!was) setTimeout(() => $('drClose').focus(), 60); }
+  else if (was && dr.contains(document.activeElement)) $('setBtn').focus();
+}
+
+// ================================================================ views and routing
+let homeScroll = 0;
+function route() {
+  const hsh = decodeURIComponent(location.hash.replace(/^#/, ''));
+  const m = /^stock\/(.+)$/.exec(hsh);
+  if (m) {
+    if (UI.view === 'home') homeScroll = window.scrollY;
+    UI.view = 'stock';
+    show($('home'), false); show($('stock'), true);
+    openStockView(m[1]);
+    window.scrollTo(0, 0);
+  } else {
+    const was = UI.view;
+    UI.view = 'home';
+    document.title = 'Screen Stocks bot';
+    show($('stock'), false); show($('home'), true);
+    if (was === 'stock') requestAnimationFrame(() => window.scrollTo(0, homeScroll));
+    if (hsh === 'settings') openDrawer(true);
+  }
+  if (A.S) render();
+}
+
+// ================================================================ render, polling
+function render() {
+  const t0 = performance.now(), S = A.S;
+  addTrades(S.trades);
+  collectFlows(S);
+  nwLive(S);
+  renderFeed(S); renderBanner(S);
+  if (!A.armBusy) setArm(!!(S.cfg && S.cfg.armed), S);
+  if (UI.view === 'home') {
+    renderHero(S); renderNWChart(); renderDoing(S); renderNow(S); renderLatest(); renderStocks(S);
+  } else renderStockView(S);
+  if (DR.open) syncSettings(S.cfg || {});
+  tickCooldowns();
+  A.renderMs = performance.now() - t0;
+}
+function renderOffline() {
+  renderFeed(A.S); renderBanner(A.S); tickCooldowns();
+  if (A.S && UI.view === 'home') renderDoing(A.S);
+  if (SET.built) settingsDirty(true);
+}
+let pollTimer = 0, polling = false;
+async function poll() {
+  clearTimeout(pollTimer);
+  if (polling) return;
+  if (document.hidden) return;                 // paused while the tab is hidden; visibilitychange restarts it
+  polling = true;
+  try {
+    const S = await getJSON('/api/state');
+    const first = !A.everOk;
+    A.S = S; A.recvAt = performance.now(); A.offline = false; A.everOk = true; A.fails = 0;
+    document.body.classList.remove('offline');
+    render();
+    if (first) { fetchNW(true); if (UI.view === 'stock') openStockView(SV.id); requestAnimationFrame(() => document.body.classList.add('ready')); }
+    else fetchNW(false);
+  } catch (e) {
+    A.fails++;
+    A.offline = true;
+    document.body.classList.toggle('offline', A.everOk);
+    renderOffline();
+  } finally {
+    polling = false;
+    if (!document.hidden) pollTimer = setTimeout(poll, A.offline ? Math.min(10000, 2000 + A.fails * 1000) : 2000);
+  }
+}
+function scheduler() {
+  if (document.hidden || A.offline || !A.everOk || UI.view !== 'stock' || !SV.id) return;
+  if (!SV.busy && Date.now() >= SV.nextAt) fetchStock();
+}
+let lastTick = 0;
+function tick() {
+  if (document.hidden || !A.S) return;
+  tickCooldowns();
+  const now = performance.now();
+  if (now - lastTick >= 1000 && UI.view === 'home' && !A.offline) { lastTick = now; renderDoing(A.S); }
+}
+
+// ================================================================ wiring
+for (const [r, lab, long] of NW_RANGES) $('nwTabs').append(h('button', {type: 'button', 'data-r': r, text: lab, title: 'Net worth over ' + long, onclick: () => setNWRange(r)}));
+renderNWTabs();
+for (const [r, lab] of SV_RANGES) $('svTabs').append(h('button', {type: 'button', 'data-r': r, text: lab, onclick: () => setSvRange(r)}));
+for (const b of $('svType').children) b.onclick = () => { SV.type = b.dataset.type; LS.set('svType', SV.type); SV.chart.opt.type = SV.type; renderSvTabs(); SV.chart.draw(); };
+SV.chart = new PriceChart($('svChart'), {type: SV.type, log: false});
+renderSvTabs();
+$('svMore').onclick = () => { SV.tradesN += 30; if (A.S) renderStockView(A.S); };
+$('showAll').onclick = () => { UI.showAll = !UI.showAll; LS.set('showAll', UI.showAll); if (A.S) renderStocks(A.S); };
+$('arm').onclick = async () => {
+  if (A.armBusy || !A.S) return;
+  const want = $('arm').getAttribute('aria-checked') !== 'true';
+  A.armBusy = true; setAttr($('arm'), 'aria-busy', 'true'); setArm(want, A.S);
+  const r = await api('/api/arm', {armed: want});
+  A.armBusy = false; setAttr($('arm'), 'aria-busy', null);
+  if (!r.ok) { setArm(!want, A.S); toast('Couldn’t switch the bot: ' + errText(r), 'bad'); }
+  else { if (A.S && A.S.cfg) A.S.cfg.armed = want; toast(want ? 'Bot on: trading automatically' : 'Bot off: watching only', want ? 'ok' : ''); if (A.S) render(); }
+};
+$('setBtn').onclick = () => openDrawer(!DR.open);
+$('drClose').onclick = () => openDrawer(false);
+$('scrim').onclick = () => openDrawer(false);
+$('sSave').onclick = saveSettings;
+$('sDiscard').onclick = discardSettings;
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (DR.open) { openDrawer(false); e.preventDefault(); }
+  else if (UI.view === 'stock' && !(document.activeElement && document.activeElement.tagName === 'CANVAS')) { location.hash = ''; e.preventDefault(); }
+});
+window.addEventListener('hashchange', route);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { clearTimeout(pollTimer); return; }
+  poll(); NWP.draw(); if (SV.chart) SV.chart.draw();
+});
+openDrawer(false);
+placeholderStocks();
+renderLatest();
+route();
+poll();
+setInterval(tick, 250);
+setInterval(scheduler, 500);
+</script>
+</body>
+</html>
