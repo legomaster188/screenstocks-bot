@@ -61,7 +61,7 @@
   "resetRebuyMin": 10,
   "swing": true,
   "swingPercent": 25,
-  "swingMaxNwPct": 25,
+  "swingMaxNwPct": 10,
   "swingMinEdge": 3.0,
   "swingCost": 1.4,
   "swingStop": 0.0,
